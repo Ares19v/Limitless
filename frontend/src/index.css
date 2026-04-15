@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Variables ──────────────────────────────────────────────────────── */
+:root {
+  --surface: 220 14% 96%;
+  --surface-hover: 220 14% 90%;
+  --surface-border: 220 13% 88%;
+
+  /* Scrollbar */
+  --scrollbar-track: #f1f1f1;
+  --scrollbar-thumb: #c1c9d6;
+  --scrollbar-thumb-hover: #a0aab8;
+}
+
+.dark {
+  --surface: 222 15% 13%;
+  --surface-hover: 222 15% 17%;
+  --surface-border: 222 15% 22%;
+  --scrollbar-track: #1e2734;
+  --scrollbar-thumb: #3a4660;
+  --scrollbar-thumb-hover: #4d5e7a;
+}
+
+/* ── Reset & Base ───────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-slate-50 dark:bg-gray-950 text-slate-900 dark:text-slate-100;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Custom Scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 100vw;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 100vw;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ── Utilities ──────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glass {
+    @apply bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/20 dark:border-white/10;
+  }
+
+  .glass-dark {
+    @apply bg-gray-900/80 backdrop-blur-xl border border-gray-700/50;
+  }
+
+  .gradient-brand {
+    background: linear-gradient(135deg, #3d5eff 0%, #6488ff 50%, #97b2ff 100%);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #3d5eff 0%, #6488ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Typing cursor blink */
+  .cursor-blink::after {
+    content: '|';
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+}
+
+/* ── Component Layer ────────────────────────────────────────────────────── */
+@layer components {
+  /* Prose styles for markdown messages */
+  .prose-chat {
+    @apply text-sm leading-relaxed;
+  }
+  .prose-chat h1, .prose-chat h2, .prose-chat h3 {
+    @apply font-semibold mt-4 mb-2;
+  }
+  .prose-chat p {
+    @apply mb-3 last:mb-0;
+  }
+  .prose-chat ul, .prose-chat ol {
+    @apply pl-5 mb-3 space-y-1;
+  }
+  .prose-chat ul { @apply list-disc; }
+  .prose-chat ol { @apply list-decimal; }
+  .prose-chat code {
+    @apply font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded;
+  }
+  .prose-chat pre {
+    @apply bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-xl p-4 overflow-x-auto my-3;
+  }
+  .prose-chat pre code {
+    @apply bg-transparent text-inherit p-0;
+  }
+  .prose-chat blockquote {
+    @apply border-l-4 border-brand-400 pl-4 italic text-slate-600 dark:text-slate-400 my-3;
+  }
+  .prose-chat strong {
+    @apply font-semibold text-slate-900 dark:text-slate-100;
+  }
+
+  /* Upload drop zone */
+  .drop-zone {
+    @apply border-2 border-dashed border-slate-300 dark:border-slate-600
+           rounded-2xl transition-all duration-300 cursor-pointer
+           hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/20;
+  }
+  .drop-zone.active {
+    @apply border-brand-500 bg-brand-50 dark:bg-brand-950/30 scale-[1.02];
+  }
+
+  /* Status badge */
+  .status-processing {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+  .status-ready {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+  }
+  .status-error {
+    @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+  }
+}
