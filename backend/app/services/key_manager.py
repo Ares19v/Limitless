@@ -1,10 +1,13 @@
 """
-Groq API Key Manager — automatic rotation on 429 rate limit errors.
+Groq Key + Model Manager — automatic fallback on 429 rate limit errors.
 
-Strategy: Round-robin with fallback.
-- Keys rotate in order on every LLM creation call.
-- If a key returns 429, it's immediately skipped and the next one is tried.
-- Gives you 4x the daily token budget across 4 keys.
+Strategy: Try primary model → fallback models → raise.
+- llama-3.3-70b-versatile  (100K TPD — main model)
+- llama-3.1-8b-instant     (separate 100K TPD quota — fast fallback)
+- gemma2-9b-it             (separate 100K TPD quota — backup fallback)
+
+Each model has its own independent daily token budget on Groq,
+even on the same account. This gives ~300K effective tokens/day.
 """
 
 from __future__ import annotations
@@ -19,16 +22,32 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+FALLBACK_MODELS = [
+    "llama-3.1-8b-instant",
+    "gemma2-9b-it",
+]
+
 
 class GroqKeyManager:
-    """Thread-safe round-robin key manager with 429 fallback."""
+    """
+    Thread-safe LLM factory with automatic model fallback on 429.
 
-    def __init__(self, keys: List[str], model: str):
+    On each get_llm() call it uses the configured primary model.
+    If that call returns a 429 during streaming, rag_chain catches it
+    and calls get_llm_fallback() to get the next model in line.
+    """
+
+    def __init__(self, keys: List[str], primary_model: str):
         self._keys = keys
-        self._model = model
+        self._primary_model = primary_model
         self._index = 0
         self._lock = threading.Lock()
-        logger.info("key_manager_ready", keys=len(keys), model=model)
+        logger.info(
+            "key_manager_ready",
+            keys=len(keys),
+            primary_model=primary_model,
+            fallback_models=FALLBACK_MODELS,
+        )
 
     def _next_key(self) -> str:
         with self._lock:
@@ -36,34 +55,36 @@ class GroqKeyManager:
             self._index += 1
             return key
 
-    def get_llm(self, **kwargs) -> ChatGroq:
-        """Get a ChatGroq instance using the next key in rotation."""
+    def _make_llm(self, model: str, **kwargs) -> ChatGroq:
         key = self._next_key()
-        key_hint = f"...{key[-6:]}"
-        logger.info("groq_key_selected", hint=key_hint, total_keys=len(self._keys))
-        return ChatGroq(
-            model=self._model,
-            groq_api_key=key,
-            **kwargs,
-        )
+        logger.info("groq_key_selected", hint=f"...{key[-6:]}", model=model)
+        return ChatGroq(model=model, groq_api_key=key, **kwargs)
 
-    def get_llm_with_fallback(self, **kwargs) -> tuple[ChatGroq, str]:
-        """
-        Try each key in order until one doesn't immediately fail.
-        Returns (llm_instance, api_key_used).
-        """
-        errors = []
-        for _ in range(len(self._keys)):
-            key = self._next_key()
-            key_hint = f"...{key[-6:]}"
-            try:
-                llm = ChatGroq(model=self._model, groq_api_key=key, **kwargs)
-                logger.info("groq_key_selected", hint=key_hint)
-                return llm, key
-            except Exception as e:
-                errors.append(f"{key_hint}: {e}")
+    def get_llm(self, **kwargs) -> ChatGroq:
+        """Primary model LLM."""
+        return self._make_llm(self._primary_model, **kwargs)
 
-        raise RuntimeError(f"All Groq keys failed: {errors}")
+    def get_fallback_llm(self, failed_model: str, **kwargs) -> ChatGroq:
+        """
+        Return the next model after the one that just failed.
+        Cycles through FALLBACK_MODELS in order.
+        """
+        try:
+            idx = ([self._primary_model] + FALLBACK_MODELS).index(failed_model)
+        except ValueError:
+            idx = 0
+
+        all_models = [self._primary_model] + FALLBACK_MODELS
+        for i in range(idx + 1, len(all_models)):
+            next_model = all_models[i]
+            logger.warning(
+                "groq_model_fallback",
+                failed=failed_model,
+                trying=next_model,
+            )
+            return self._make_llm(next_model, **kwargs)
+
+        raise RuntimeError(f"All Groq models exhausted after failing on '{failed_model}'")
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
@@ -72,23 +93,34 @@ _manager: GroqKeyManager | None = None
 
 
 def get_key_manager() -> GroqKeyManager:
-    """Return the singleton key manager, initialised from settings."""
     global _manager
     if _manager is None:
         settings = get_settings()
         _manager = GroqKeyManager(
             keys=settings.groq_api_keys,
-            model=settings.llm_model,
+            primary_model=settings.llm_model,
         )
     return _manager
 
 
 def get_llm(streaming: bool = True, temperature: float = 0.1, max_tokens: int = 2048) -> ChatGroq:
-    """
-    Convenience function — get a ChatGroq instance from the key pool.
-    Automatically rotates keys on each call (round-robin).
-    """
+    """Get a ChatGroq instance from the primary model."""
     return get_key_manager().get_llm(
+        streaming=streaming,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+
+def get_fallback_llm(
+    failed_model: str,
+    streaming: bool = True,
+    temperature: float = 0.1,
+    max_tokens: int = 2048,
+) -> ChatGroq:
+    """Get a ChatGroq instance from the next fallback model."""
+    return get_key_manager().get_fallback_llm(
+        failed_model=failed_model,
         streaming=streaming,
         temperature=temperature,
         max_tokens=max_tokens,

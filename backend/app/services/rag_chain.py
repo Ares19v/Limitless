@@ -14,7 +14,7 @@ from langchain_groq import ChatGroq
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.schemas import ChatMessage, SourceChunk
-from app.services.key_manager import get_llm as get_groq_llm
+from app.services.key_manager import get_fallback_llm, get_llm as get_groq_llm
 from app.services.reranker import rerank
 from app.services.vector_store import global_similarity_search, hybrid_similarity_search
 
@@ -118,32 +118,54 @@ async def stream_rag_response(
     )
 
     full_answer = ""
-    try:
-        async for chunk in llm.astream(messages):
-            token = chunk.content
-            if token:
-                full_answer += token
-                yield f"data: {token}\n\n"
-    except Exception as exc:
-        logger.error("rag_stream_error", error=str(exc))
-        yield f"data: ❌ An error occurred: {str(exc)}\n\n"
-    finally:
-        # Persist to conversation history
-        try:
-            from app.services.document_store import save_message
-            await save_message(document_id, "user", user_message)
-            if full_answer:
-                await save_message(document_id, "assistant", full_answer)
-        except Exception as exc:
-            logger.warning("history_save_failed", error=str(exc))
+    current_model = get_settings().llm_model
+    max_retries = 3  # primary + 2 fallbacks
 
-        sources_data = [
-            {"content": s.content[:200], "page": s.page, "score": s.score}
-            for s in sources
-        ]
-        yield f"event: sources\ndata: {json.dumps(sources_data)}\n\n"
-        yield "event: done\ndata: [DONE]\n\n"
-        logger.info("rag_stream_complete", document_id=str(document_id))
+    for attempt in range(max_retries):
+        if attempt == 0:
+            llm = get_groq_llm(streaming=True)
+        else:
+            try:
+                llm = get_fallback_llm(failed_model=current_model, streaming=True)
+                current_model = llm.model_name
+                logger.warning("rag_retry_with_fallback", attempt=attempt, model=current_model)
+            except RuntimeError:
+                yield "data: ❌ All AI models are rate-limited. Please wait a few minutes and try again.\n\n"
+                break
+
+        try:
+            async for chunk in llm.astream(messages):
+                token = chunk.content
+                if token:
+                    full_answer += token
+                    yield f"data: {token}\n\n"
+            break  # success — exit retry loop
+        except Exception as exc:
+            err = str(exc)
+            if "429" in err or "rate_limit" in err:
+                logger.warning("rag_rate_limited", attempt=attempt, model=current_model)
+                full_answer = ""  # reset for retry
+                continue  # try next model
+            else:
+                logger.error("rag_stream_error", error=err)
+                yield f"data: ❌ An error occurred: {err}\n\n"
+                break
+    # Persist and finalize regardless of which model answered
+    try:
+        from app.services.document_store import save_message
+        await save_message(document_id, "user", user_message)
+        if full_answer:
+            await save_message(document_id, "assistant", full_answer)
+    except Exception as exc:
+        logger.warning("history_save_failed", error=str(exc))
+
+    sources_data = [
+        {"content": s.content[:200], "page": s.page, "score": s.score}
+        for s in sources
+    ]
+    yield f"event: sources\ndata: {json.dumps(sources_data)}\n\n"
+    yield "event: done\ndata: [DONE]\n\n"
+    logger.info("rag_stream_complete", document_id=str(document_id))
 
 
 async def stream_global_rag_response(
