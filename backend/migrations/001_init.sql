@@ -13,7 +13,7 @@
 -- 1. Go to https://www.pinecone.io → Sign Up Free
 -- 2. Dashboard → Indexes → Create Index
 -- 3. Settings:
---      Name:       documind
+--      Name:       documind  (your existing Pinecone index — do NOT rename this)
 --      Dimensions: 384        (matches all-MiniLM-L6-v2 embedding model)
 --      Metric:     cosine
 --      Cloud:      AWS

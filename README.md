@@ -59,7 +59,7 @@ PINECONE_INDEX_NAME=documind
 ## Project Structure
 
 ```
-DocuMind/
+Limitless/
 ├── backend/          # FastAPI + LangChain + pgvector
 │   ├── app/
 │   │   ├── api/routes/   # upload, chat, documents
