@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { ChatMessage, Document, SourceChunk } from '@/types'
+import type { AgentStep, ChatMessage, Document, SourceChunk } from '@/types'
 
 interface AppState {
   // ── Theme ──────────────────────────────────────────────────────────────

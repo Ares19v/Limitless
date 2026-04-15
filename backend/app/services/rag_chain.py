@@ -1,6 +1,6 @@
 """
 RAG chain using Groq LLM with streaming via SSE.
-Retrieves chunks from Pinecone and streams Groq response token-by-token.
+v2: Hybrid search (BM25 + Pinecone) → Cross-encoder re-ranking → Groq streaming.
 """
 
 from __future__ import annotations
@@ -14,7 +14,8 @@ from langchain_groq import ChatGroq
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.schemas import ChatMessage, SourceChunk
-from app.services.vector_store import similarity_search
+from app.services.reranker import rerank
+from app.services.vector_store import global_similarity_search, hybrid_similarity_search
 
 logger = get_logger(__name__)
 
@@ -32,7 +33,6 @@ Guidelines:
 
 
 def _build_context_prompt(sources: List[SourceChunk]) -> str:
-    """Build a readable context block from retrieved Pinecone chunks."""
     parts = []
     for i, src in enumerate(sources, 1):
         page_info = f" (Page {src.page})" if src.page else ""
@@ -40,24 +40,61 @@ def _build_context_prompt(sources: List[SourceChunk]) -> str:
     return "\n".join(parts)
 
 
-def _build_messages(
-    context: str,
-    user_message: str,
-    history: List[ChatMessage],
-) -> List[dict]:
-    """Assemble the full message list for the Groq LLM."""
+def _build_messages(context: str, user_message: str, history: List[ChatMessage]) -> List[dict]:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-    # Add last 10 turns of conversation history
     for msg in history[-10:]:
         messages.append({"role": msg.role, "content": msg.content})
-
-    # Append user message with injected context
     messages.append({
         "role": "user",
         "content": f"Context from the document:\n{context}\n\nUser question: {user_message}",
     })
     return messages
+
+
+def _get_llm(settings) -> ChatGroq:
+    return ChatGroq(
+        model=settings.llm_model,
+        groq_api_key=settings.groq_api_key,
+        streaming=True,
+        temperature=0.1,
+        max_tokens=2048,
+    )
+
+
+async def generate_summary(chunks: List[SourceChunk]) -> str:
+    """
+    Auto-summarize a document using the first few chunks.
+    Returns a concise 3-bullet markdown summary.
+    """
+    settings = get_settings()
+    # Use first 5 chunks for summary (the intro/abstract area)
+    sample_text = "\n\n".join(c.content for c in chunks[:5])
+
+    llm = ChatGroq(
+        model=settings.llm_model,
+        groq_api_key=settings.groq_api_key,
+        temperature=0.1,
+        max_tokens=300,
+        streaming=False,
+    )
+
+    summary_prompt = [
+        {"role": "system", "content": "You are a document summarizer. Be concise."},
+        {
+            "role": "user",
+            "content": (
+                f"Summarize this document excerpt in exactly 3 short bullet points "
+                f"(each starting with •). Focus on the key topic and purpose.\n\n{sample_text}"
+            ),
+        },
+    ]
+
+    try:
+        response = await llm.ainvoke(summary_prompt)
+        return response.content.strip()
+    except Exception as exc:
+        logger.warning("summary_failed", error=str(exc))
+        return ""
 
 
 async def stream_rag_response(
@@ -66,55 +103,60 @@ async def stream_rag_response(
     history: Optional[List[ChatMessage]] = None,
 ) -> AsyncGenerator[str, None]:
     """
-    Full RAG pipeline with streaming:
-    1. Embed query → Pinecone similarity search
-    2. Build context prompt
-    3. Stream Groq LLM response token-by-token via SSE
+    Full v2 RAG pipeline:
+    1. Hybrid search (BM25 + Pinecone) → 15 candidates
+    2. Cross-encoder re-ranking → top 5
+    3. Stream Groq LLM response via SSE
+    4. Persist messages to SQLite
     """
     settings = get_settings()
     history = history or []
 
-    # Step 1: Retrieve similar chunks from Pinecone
-    sources = await similarity_search(document_id, user_message, top_k=settings.top_k_results)
+    # Step 1: Hybrid retrieval
+    candidates = await hybrid_similarity_search(document_id, user_message, top_k=15)
 
-    if not sources:
+    if not candidates:
         yield "data: I could not find any relevant information in the document for your question.\n\n"
         yield "event: sources\ndata: []\n\n"
         yield "event: done\ndata: [DONE]\n\n"
         return
 
-    # Step 2: Build prompt
+    # Step 2: Re-rank candidates to top 5
+    sources = rerank(user_message, candidates, top_k=5)
+
+    # Step 3: Build prompt and stream
     context = _build_context_prompt(sources)
     messages = _build_messages(context, user_message, history)
 
-    # Step 3: Stream from Groq
-    llm = ChatGroq(
-        model=settings.llm_model,
-        groq_api_key=settings.groq_api_key,
-        streaming=True,
-        temperature=0.1,
-        max_tokens=2048,
-    )
-
+    llm = _get_llm(settings)
     logger.info(
         "rag_stream_start",
         document_id=str(document_id),
-        sources_found=len(sources),
+        candidates=len(candidates),
+        reranked=len(sources),
         model=settings.llm_model,
     )
 
+    full_answer = ""
     try:
         async for chunk in llm.astream(messages):
             token = chunk.content
             if token:
+                full_answer += token
                 yield f"data: {token}\n\n"
-
     except Exception as exc:
         logger.error("rag_stream_error", error=str(exc))
         yield f"data: ❌ An error occurred: {str(exc)}\n\n"
-
     finally:
-        # Send source citations as a special SSE event
+        # Persist to conversation history
+        try:
+            from app.services.document_store import save_message
+            await save_message(document_id, "user", user_message)
+            if full_answer:
+                await save_message(document_id, "assistant", full_answer)
+        except Exception as exc:
+            logger.warning("history_save_failed", error=str(exc))
+
         sources_data = [
             {"content": s.content[:200], "page": s.page, "score": s.score}
             for s in sources
@@ -122,3 +164,42 @@ async def stream_rag_response(
         yield f"event: sources\ndata: {json.dumps(sources_data)}\n\n"
         yield "event: done\ndata: [DONE]\n\n"
         logger.info("rag_stream_complete", document_id=str(document_id))
+
+
+async def stream_global_rag_response(
+    user_message: str,
+) -> AsyncGenerator[str, None]:
+    """
+    Cross-document RAG: searches all documents, no namespace filter.
+    Identified by document_id prefix in chunk content.
+    """
+    settings = get_settings()
+
+    sources = await global_similarity_search(user_message, top_k=10)
+
+    if not sources:
+        yield "data: No relevant information found across any of your documents.\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
+        return
+
+    context = _build_context_prompt(sources)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT + "\nNote: Excerpts may come from multiple documents."},
+        {"role": "user", "content": f"Context from documents:\n{context}\n\nQuestion: {user_message}"},
+    ]
+
+    llm = _get_llm(settings)
+    logger.info("global_rag_start", sources=len(sources))
+
+    try:
+        async for chunk in llm.astream(messages):
+            token = chunk.content
+            if token:
+                yield f"data: {token}\n\n"
+    except Exception as exc:
+        logger.error("global_rag_error", error=str(exc))
+        yield f"data: ❌ An error occurred: {str(exc)}\n\n"
+    finally:
+        sources_data = [{"content": s.content[:200], "page": s.page, "score": s.score} for s in sources]
+        yield f"event: sources\ndata: {json.dumps(sources_data)}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"

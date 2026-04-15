@@ -1,5 +1,6 @@
 """
 Chat route — streams LLM responses via Server-Sent Events (SSE).
+v2: Auto-loads conversation history from SQLite on each request.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from fastapi.responses import StreamingResponse
 
 from app.core.logging import get_logger
 from app.models.schemas import ChatRequest
+from app.services.document_store import get_document, get_history
 from app.services.rag_chain import stream_rag_response
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -24,6 +26,7 @@ async def chat_with_document(
 ):
     """
     Stream a RAG-powered response about the uploaded document.
+    Automatically loads conversation history from SQLite.
     Returns SSE stream (text/event-stream).
     """
     if request.document_id != document_id:
@@ -32,18 +35,21 @@ async def chat_with_document(
             detail="document_id in path and body must match.",
         )
 
+    # Auto-load history from SQLite (ignores client-sent history for consistency)
+    history = await get_history(document_id, limit=20)
+
     logger.info(
         "chat_request",
         document_id=str(document_id),
         message_preview=request.message[:80],
-        history_length=len(request.history),
+        history_length=len(history),
     )
 
     return StreamingResponse(
         stream_rag_response(
             document_id=document_id,
             user_message=request.message,
-            history=request.history,
+            history=history,
         ),
         media_type="text/event-stream",
         headers={

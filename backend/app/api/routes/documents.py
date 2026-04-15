@@ -11,8 +11,10 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import get_logger
 from app.models.schemas import DocumentListResponse, DocumentResponse
+from app.services.bm25_store import delete_bm25_index
 from app.services.document_store import (
     delete_document as db_delete,
+    delete_history,
     get_document,
     list_documents,
 )
@@ -55,10 +57,13 @@ async def delete_doc(document_id: UUID):
     if not row:
         raise HTTPException(status_code=404, detail="Document not found.")
 
-    # 1. Delete Pinecone namespace (all vectors for this doc)
+    # 1. Delete Pinecone vectors
     await delete_document_embeddings(document_id)
-
-    # 2. Delete SQLite record
+    # 2. Delete local BM25 index
+    delete_bm25_index(str(document_id))
+    # 3. Delete chat history
+    await delete_history(document_id)
+    # 4. Delete SQLite record
     await db_delete(document_id)
 
     logger.info("document_deleted", document_id=str(document_id))

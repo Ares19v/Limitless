@@ -31,6 +31,7 @@ class DocumentResponse(DocumentBase):
     chunk_count: int
     created_at: datetime
     error_message: Optional[str] = None
+    summary: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

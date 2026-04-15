@@ -7,11 +7,13 @@ import {
   FileText,
   Trash2,
   ChevronRight,
+  ChevronDown,
   RefreshCw,
   Clock,
   CheckCircle2,
   XCircle,
   Loader2,
+  Sparkles,
 } from 'lucide-react'
 import { cn, formatBytes, formatRelativeTime } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
@@ -40,6 +42,7 @@ function DocumentItem({
   onDelete: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   return (
     <li
@@ -128,6 +131,25 @@ function DocumentItem({
           >
             Cancel
           </button>
+        </div>
+      )}
+
+      {/* AI Summary expandable panel */}
+      {doc.status === 'ready' && doc.summary && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); setSummaryOpen(v => !v) }}
+            className="flex items-center gap-1 text-xs text-brand-500 hover:text-brand-600 font-medium"
+          >
+            <Sparkles className="w-3 h-3" />
+            {summaryOpen ? 'Hide' : 'Show'} AI Summary
+            {summaryOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          </button>
+          {summaryOpen && (
+            <div className="mt-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 leading-relaxed whitespace-pre-line">
+              {doc.summary}
+            </div>
+          )}
         </div>
       )}
 

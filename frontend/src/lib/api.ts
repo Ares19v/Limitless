@@ -122,3 +122,100 @@ export async function checkHealth(): Promise<HealthResponse> {
   const { data } = await axios.get<HealthResponse>(`${BASE_URL}/health`)
   return data
 }
+
+// ── History ───────────────────────────────────────────────────────────────
+
+export async function fetchHistory(
+  documentId: string,
+): Promise<{ role: string; content: string }[]> {
+  const { data } = await api.get(`/history/${documentId}`)
+  return data
+}
+
+export async function clearHistory(documentId: string): Promise<void> {
+  await api.delete(`/history/${documentId}`)
+}
+
+// ── Global Chat (SSE) ────────────────────────────────────────────────────
+
+export async function* fetchGlobalChatStream(
+  message: string,
+): AsyncGenerator<{ type: 'token' | 'sources' | 'done'; data: string }> {
+  const url = `${BASE_URL}/api/v1/chat/global`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ message }),
+  })
+  if (!response.ok) throw new Error(`Global chat error: ${response.status}`)
+  yield* _readSSEStream(response)
+}
+
+// ── Agent Chat (SSE) ─────────────────────────────────────────────────────
+
+export async function* fetchAgentStream(
+  documentId: string,
+  message: string,
+): AsyncGenerator<{ type: 'token' | 'step' | 'done'; data: string }> {
+  const url = `${BASE_URL}/api/v1/agent/${documentId}`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ message }),
+  })
+  if (!response.ok) throw new Error(`Agent error: ${response.status}`)
+
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let eventType = 'message'
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventType = line.slice(7).trim()
+      } else if (line.startsWith('data: ')) {
+        const data = line.slice(6)
+        if (data === '[DONE]') { yield { type: 'done', data: '' }; return }
+        if (eventType === 'step') yield { type: 'step', data }
+        else yield { type: 'token', data }
+        eventType = 'message'
+      }
+    }
+  }
+}
+
+// ── Shared SSE reader ─────────────────────────────────────────────────────
+
+async function* _readSSEStream(
+  response: Response,
+): AsyncGenerator<{ type: 'token' | 'sources' | 'done'; data: string }> {
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let eventType = 'message'
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventType = line.slice(7).trim()
+      } else if (line.startsWith('data: ')) {
+        const data = line.slice(6)
+        if (eventType === 'sources') { yield { type: 'sources', data }; }
+        else if (data === '[DONE]') { yield { type: 'done', data: '' }; return }
+        else yield { type: 'token', data }
+        eventType = 'message'
+      }
+    }
+  }
+}

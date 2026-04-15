@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import chat, documents, upload
+from app.api.routes import global_chat, agent_chat, history
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
 from app.models.schemas import ErrorResponse, HealthResponse
@@ -67,6 +68,9 @@ app.add_middleware(
 app.include_router(upload.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(documents.router, prefix="/api/v1")
+app.include_router(global_chat.router, prefix="/api/v1")
+app.include_router(agent_chat.router, prefix="/api/v1")
+app.include_router(history.router, prefix="/api/v1")
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

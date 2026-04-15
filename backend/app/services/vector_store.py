@@ -1,16 +1,15 @@
 """
-Pinecone vector store service.
-Each document gets its own namespace in the shared Pinecone index,
-which provides clean isolation and simple bulk deletion.
+Pinecone vector store service + Hybrid Search (BM25 + Vector with RRF fusion).
 
-Pinecone free tier: 1 index, up to 100K vectors.
-Index setup: Dimensions=384, Metric=cosine (matches all-MiniLM-L6-v2).
+Each document gets its own namespace in the shared Pinecone index.
+Hybrid search combines keyword precision (BM25) with semantic understanding (Pinecone).
+Results are merged using Reciprocal Rank Fusion (RRF, k=60).
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from langchain_core.documents import Document
@@ -24,10 +23,10 @@ from app.services.embeddings import embed_query, embed_texts
 logger = get_logger(__name__)
 
 _pinecone_client: Pinecone | None = None
+_RRF_K = 60  # RRF constant — standard value
 
 
 def _get_pinecone() -> Pinecone:
-    """Return a cached Pinecone client."""
     global _pinecone_client
     if _pinecone_client is None:
         settings = get_settings()
@@ -37,54 +36,40 @@ def _get_pinecone() -> Pinecone:
 
 
 def _get_index():
-    """Return the Pinecone index handle, auto-creating if necessary."""
     settings = get_settings()
     pc = _get_pinecone()
     index_name = settings.pinecone_index_name
-
     existing = [idx.name for idx in pc.list_indexes()]
     if index_name not in existing:
-        logger.info("pinecone_creating_index", name=index_name, dims=settings.embedding_dimension)
+        logger.info("pinecone_creating_index", name=index_name)
         pc.create_index(
             name=index_name,
             dimension=settings.embedding_dimension,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
-        logger.info("pinecone_index_created", name=index_name)
-
     return pc.Index(index_name)
 
 
 def _document_namespace(document_id: UUID) -> str:
-    """Each document gets an isolated namespace: doc-<uuid>"""
     return f"doc-{document_id}"
 
 
-async def store_embeddings(
-    document_id: UUID,
-    chunks: List[Document],
-) -> int:
-    """
-    Embed all chunks and upsert them into Pinecone under the document's namespace.
-    Returns the number of chunks stored.
-    """
+async def store_embeddings(document_id: UUID, chunks: List[Document]) -> int:
+    """Embed chunks and upsert into Pinecone. Returns chunk count stored."""
     if not chunks:
         return 0
 
     settings = get_settings()
     texts = [c.page_content for c in chunks]
-
     logger.info("embedding_chunks", count=len(texts), document_id=str(document_id))
 
-    # Run embedding in thread pool (CPU-bound)
     loop = asyncio.get_event_loop()
     vectors = await loop.run_in_executor(None, lambda: _sync_embed_texts(texts))
 
     namespace = _document_namespace(document_id)
     index = _get_index()
 
-    # Build Pinecone vector records
     records = []
     for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
         records.append({
@@ -100,96 +85,143 @@ async def store_embeddings(
             },
         })
 
-    # Upsert in batches of 100 (Pinecone limit per batch)
-    batch_size = 100
-    for i in range(0, len(records), batch_size):
-        batch = records[i : i + batch_size]
+    for i in range(0, len(records), 100):
+        batch = records[i: i + 100]
         index.upsert(vectors=batch, namespace=namespace)
-        logger.info(
-            "pinecone_upsert_batch",
-            batch=i // batch_size + 1,
-            count=len(batch),
-            document_id=str(document_id),
-        )
+        logger.info("pinecone_upsert_batch", batch=i // 100 + 1, count=len(batch))
 
     logger.info("embeddings_stored", count=len(records), document_id=str(document_id))
     return len(records)
 
 
 def _sync_embed_texts(texts: List[str]) -> List[List[float]]:
-    """Synchronous wrapper for embedding (used in thread pool)."""
     from app.services.embeddings import get_embeddings
-    emb = get_embeddings()
-    return emb.embed_documents(texts)
+    return get_embeddings().embed_documents(texts)
+
+
+def _sync_embed_query(text: str) -> List[float]:
+    from app.services.embeddings import get_embeddings
+    return get_embeddings().embed_query(text)
 
 
 async def similarity_search(
-    document_id: UUID,
-    query: str,
-    top_k: Optional[int] = None,
+    document_id: UUID, query: str, top_k: Optional[int] = None,
 ) -> List[SourceChunk]:
-    """
-    Embed the query and find the most similar chunks in the document's namespace.
-    Returns ranked SourceChunk objects with content, page, and similarity score.
-    """
+    """Pure Pinecone vector similarity search (used internally)."""
     settings = get_settings()
     k = top_k or settings.top_k_results
 
-    # Embed query in thread pool
     loop = asyncio.get_event_loop()
-    query_vector = await loop.run_in_executor(
-        None,
-        lambda: _sync_embed_query(query),
-    )
+    query_vector = await loop.run_in_executor(None, lambda: _sync_embed_query(query))
 
     namespace = _document_namespace(document_id)
     index = _get_index()
 
     result = index.query(
-        vector=query_vector,
-        top_k=k,
-        namespace=namespace,
-        include_metadata=True,
+        vector=query_vector, top_k=k, namespace=namespace, include_metadata=True,
     )
 
     sources: List[SourceChunk] = []
     for match in result.get("matches", []):
         meta = match.get("metadata", {})
-        sources.append(
-            SourceChunk(
-                content=meta.get("content", ""),
-                page=meta.get("page"),
-                score=round(float(match.get("score", 0.0)), 4),
-            )
-        )
+        sources.append(SourceChunk(
+            content=meta.get("content", ""),
+            page=meta.get("page"),
+            score=round(float(match.get("score", 0.0)), 4),
+        ))
 
-    logger.info(
-        "similarity_search_done",
-        document_id=str(document_id),
-        results=len(sources),
-    )
+    logger.info("similarity_search_done", document_id=str(document_id), results=len(sources))
     return sources
 
 
-def _sync_embed_query(text: str) -> List[float]:
-    """Synchronous wrapper for query embedding."""
-    from app.services.embeddings import get_embeddings
-    return get_embeddings().embed_query(text)
+def _rrf_fuse(
+    vector_results: List[SourceChunk],
+    bm25_results: List[SourceChunk],
+    k: int = _RRF_K,
+) -> List[SourceChunk]:
+    """
+    Reciprocal Rank Fusion — merges two ranked lists into one.
+    Score = sum(1 / (k + rank)) for each result appearance.
+    """
+    scores: Dict[str, float] = {}
+    chunk_map: Dict[str, SourceChunk] = {}
+
+    for rank, chunk in enumerate(vector_results):
+        key = chunk.content[:100]  # Use content prefix as dedup key
+        scores[key] = scores.get(key, 0.0) + 1.0 / (k + rank + 1)
+        chunk_map[key] = chunk
+
+    for rank, chunk in enumerate(bm25_results):
+        key = chunk.content[:100]
+        scores[key] = scores.get(key, 0.0) + 1.0 / (k + rank + 1)
+        chunk_map[key] = chunk
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return [chunk_map[key] for key, _ in ranked]
+
+
+async def hybrid_similarity_search(
+    document_id: UUID, query: str, top_k: int = 15,
+) -> List[SourceChunk]:
+    """
+    Hybrid search: BM25 keyword + Pinecone vector, fused with RRF.
+    Returns top_k candidates for downstream re-ranking.
+    """
+    from app.services.bm25_store import bm25_search
+
+    # Run both searches in parallel
+    vector_task = similarity_search(document_id, query, top_k=top_k)
+    loop = asyncio.get_event_loop()
+    bm25_task = loop.run_in_executor(
+        None, lambda: bm25_search(str(document_id), query, top_k=top_k)
+    )
+
+    vector_results, bm25_results = await asyncio.gather(vector_task, bm25_task)
+
+    fused = _rrf_fuse(vector_results, list(bm25_results))
+    logger.info(
+        "hybrid_search_done",
+        document_id=str(document_id),
+        vector=len(vector_results),
+        bm25=len(bm25_results),
+        fused=len(fused),
+    )
+    return fused[:top_k]
+
+
+async def global_similarity_search(query: str, top_k: int = 15) -> List[SourceChunk]:
+    """
+    Search across ALL documents (no namespace filter).
+    Returns chunks tagged with their document_id in content.
+    """
+    loop = asyncio.get_event_loop()
+    query_vector = await loop.run_in_executor(None, lambda: _sync_embed_query(query))
+
+    index = _get_index()
+    result = index.query(
+        vector=query_vector, top_k=top_k, include_metadata=True,
+    )
+
+    sources: List[SourceChunk] = []
+    for match in result.get("matches", []):
+        meta = match.get("metadata", {})
+        doc_id = meta.get("document_id", "unknown")
+        sources.append(SourceChunk(
+            content=f"[Doc: {doc_id[:8]}...]\n{meta.get('content', '')}",
+            page=meta.get("page"),
+            score=round(float(match.get("score", 0.0)), 4),
+        ))
+
+    logger.info("global_search_done", results=len(sources))
+    return sources
 
 
 async def delete_document_embeddings(document_id: UUID) -> None:
-    """
-    Delete all vectors in the document's namespace.
-    This is instant and clean — no leftover vectors.
-    """
+    """Delete all vectors in the document's Pinecone namespace."""
     try:
         namespace = _document_namespace(document_id)
         index = _get_index()
         index.delete(delete_all=True, namespace=namespace)
         logger.info("pinecone_namespace_deleted", document_id=str(document_id))
     except Exception as exc:
-        logger.warning(
-            "pinecone_delete_failed",
-            document_id=str(document_id),
-            error=str(exc),
-        )
+        logger.warning("pinecone_delete_failed", document_id=str(document_id), error=str(exc))

@@ -48,6 +48,7 @@ export function useUpload() {
             chunk_count: 0,
             created_at: new Date().toISOString(),
             error_message: null,
+            summary: null,
           })
 
           updateItem(item.file, { status: 'done', progress: 100, documentId: result.document_id })

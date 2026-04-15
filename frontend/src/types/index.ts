@@ -10,6 +10,7 @@ export interface Document {
   chunk_count: number
   created_at: string
   error_message: string | null
+  summary?: string | null
 }
 
 export interface DocumentListResponse {
@@ -30,6 +31,7 @@ export interface ChatMessage {
   timestamp: string
   sources?: SourceChunk[]
   isStreaming?: boolean
+  agentSteps?: AgentStep[]
 }
 
 export interface SourceChunk {
@@ -48,4 +50,10 @@ export interface HealthResponse {
   status: string
   version: string
   timestamp: string
+}
+
+export interface AgentStep {
+  tool: string
+  input: string
+  emoji: string
 }
