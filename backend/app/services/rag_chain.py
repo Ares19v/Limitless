@@ -14,6 +14,7 @@ from langchain_groq import ChatGroq
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.schemas import ChatMessage, SourceChunk
+from app.services.key_manager import get_llm as get_groq_llm
 from app.services.reranker import rerank
 from app.services.vector_store import global_similarity_search, hybrid_similarity_search
 
@@ -51,32 +52,12 @@ def _build_messages(context: str, user_message: str, history: List[ChatMessage])
     return messages
 
 
-def _get_llm(settings) -> ChatGroq:
-    return ChatGroq(
-        model=settings.llm_model,
-        groq_api_key=settings.groq_api_key,
-        streaming=True,
-        temperature=0.1,
-        max_tokens=2048,
-    )
-
 
 async def generate_summary(chunks: List[SourceChunk]) -> str:
-    """
-    Auto-summarize a document using the first few chunks.
-    Returns a concise 3-bullet markdown summary.
-    """
-    settings = get_settings()
-    # Use first 5 chunks for summary (the intro/abstract area)
+    """Auto-summarize a document using the first few chunks."""
     sample_text = "\n\n".join(c.content for c in chunks[:5])
 
-    llm = ChatGroq(
-        model=settings.llm_model,
-        groq_api_key=settings.groq_api_key,
-        temperature=0.1,
-        max_tokens=300,
-        streaming=False,
-    )
+    llm = get_groq_llm(streaming=False, max_tokens=300)
 
     summary_prompt = [
         {"role": "system", "content": "You are a document summarizer. Be concise."},
@@ -128,13 +109,12 @@ async def stream_rag_response(
     context = _build_context_prompt(sources)
     messages = _build_messages(context, user_message, history)
 
-    llm = _get_llm(settings)
+    llm = get_groq_llm(streaming=True)
     logger.info(
         "rag_stream_start",
         document_id=str(document_id),
         candidates=len(candidates),
         reranked=len(sources),
-        model=settings.llm_model,
     )
 
     full_answer = ""
@@ -188,7 +168,7 @@ async def stream_global_rag_response(
         {"role": "user", "content": f"Context from documents:\n{context}\n\nQuestion: {user_message}"},
     ]
 
-    llm = _get_llm(settings)
+    llm = get_groq_llm(streaming=True)
     logger.info("global_rag_start", sources=len(sources))
 
     try:

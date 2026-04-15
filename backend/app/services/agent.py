@@ -20,6 +20,7 @@ from langchain_groq import ChatGroq
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.services.key_manager import get_llm as get_groq_llm
 from app.services.vector_store import hybrid_similarity_search
 
 logger = get_logger(__name__)
@@ -121,12 +122,7 @@ async def stream_agent_response(
     """
     settings = get_settings()
 
-    llm = ChatGroq(
-        model=settings.llm_model,
-        groq_api_key=settings.groq_api_key,
-        temperature=0.1,
-        max_tokens=2048,
-    )
+    llm = get_groq_llm(streaming=False, temperature=0.1, max_tokens=2048)
 
     tools = _make_tools(document_id)
     agent = create_react_agent(llm, tools, AGENT_PROMPT)

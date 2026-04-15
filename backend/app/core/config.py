@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     )
 
     # Groq LLM
-    groq_api_key: str = Field(..., description="Groq Cloud API key")
+    groq_api_key: str = Field(..., description="Primary Groq API key")
+    groq_api_key_pool: str = Field("", description="Comma-separated Groq API keys for rotation")
     llm_model: str = Field("llama-3.3-70b-versatile", description="Groq LLM model")
 
     # Pinecone Vector Store
@@ -85,6 +86,15 @@ class Settings(BaseSettings):
     @property
     def allowed_origins(self) -> List[str]:
         return [o.strip() for o in self.allowed_origins_raw.split(",") if o.strip()]
+
+    @property
+    def groq_api_keys(self) -> List[str]:
+        """Return all Groq keys from the pool, falling back to primary key."""
+        if self.groq_api_key_pool:
+            keys = [k.strip() for k in self.groq_api_key_pool.split(",") if k.strip()]
+            if keys:
+                return keys
+        return [self.groq_api_key]
 
     @property
     def max_upload_bytes(self) -> int:
