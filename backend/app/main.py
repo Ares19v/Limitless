@@ -66,9 +66,9 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(upload.router, prefix="/api/v1")
+app.include_router(global_chat.router, prefix="/api/v1")  # MUST be before chat to avoid /chat/global matching /{document_id}
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(documents.router, prefix="/api/v1")
-app.include_router(global_chat.router, prefix="/api/v1")
 app.include_router(agent_chat.router, prefix="/api/v1")
 app.include_router(history.router, prefix="/api/v1")
 

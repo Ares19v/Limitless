@@ -1,14 +1,13 @@
 """
-Agent mode — LangChain ReAct agent with 3 tools:
-  1. search_document  — hybrid search in the current document
-  2. web_search       — DuckDuckGo web search (no API key needed)
-  3. calculate        — safe arithmetic evaluator
-
-Streams intermediate reasoning steps + final answer via SSE.
+Agent mode — LangChain ReAct agent with 3 tools.
+FIX: Tools run in a separate thread pool with their own event loop,
+     avoiding the 'asyncio.run() inside running loop' crash.
 """
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
 import re
 from typing import AsyncGenerator
@@ -47,21 +46,40 @@ Question: {input}
 Thought: {agent_scratchpad}""")
 
 
+def _run_in_new_loop(coro):
+    """Run an async coroutine in a fresh thread with its own event loop.
+    This avoids 'asyncio.run() called inside running loop' errors."""
+    def _thread_target():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_thread_target)
+        return future.result(timeout=30)
+
+
 def _make_tools(document_id: UUID):
     """Create document-scoped tools for the agent."""
 
     @tool
     def search_document(query: str) -> str:
-        """Search the uploaded document for information relevant to the query. Use this first."""
-        import asyncio
-        chunks = asyncio.run(hybrid_similarity_search(document_id, query, top_k=5))
-        if not chunks:
-            return "No relevant content found in the document."
-        parts = []
-        for i, c in enumerate(chunks, 1):
-            page = f" (Page {c.page})" if c.page else ""
-            parts.append(f"[Excerpt {i}{page}]: {c.content[:500]}")
-        return "\n\n".join(parts)
+        """Search the uploaded document for information relevant to the query. Use this first for any document question."""
+        try:
+            chunks = _run_in_new_loop(hybrid_similarity_search(document_id, query, top_k=5))
+            if not chunks:
+                return "No relevant content found in the document."
+            parts = []
+            for i, c in enumerate(chunks, 1):
+                page = f" (Page {c.page})" if c.page else ""
+                parts.append(f"[Excerpt {i}{page}]: {c.content[:500]}")
+            return "\n\n".join(parts)
+        except Exception as e:
+            logger.error("agent_search_doc_error", error=str(e))
+            return f"Document search failed: {str(e)}"
 
     @tool
     def web_search(query: str) -> str:
@@ -74,14 +92,16 @@ def _make_tools(document_id: UUID):
             parts = [f"• {r['title']}: {r['body']}" for r in results]
             return "\n".join(parts)
         except Exception as e:
+            logger.error("agent_web_search_error", error=str(e))
             return f"Web search unavailable: {str(e)}"
 
     @tool
     def calculate(expression: str) -> str:
-        """Evaluate a safe mathematical expression. E.g. '2 + 2', '100 * 0.05', 'sqrt(144)'."""
+        """Evaluate a safe mathematical expression. E.g. '2 + 2', '100 * 0.05'."""
         import math
         try:
-            safe_expr = re.sub(r"[^0-9+\-*/().,\s]", "", expression)
+            # Strip dangerous characters — allow only math symbols
+            safe_expr = re.sub(r"[^0-9+\-*/().,\s%]", "", expression)
             allowed = {k: v for k, v in math.__dict__.items() if not k.startswith("_")}
             result = eval(safe_expr, {"__builtins__": {}}, allowed)
             return str(result)
@@ -124,11 +144,11 @@ async def stream_agent_response(
     try:
         result = await executor.ainvoke({"input": user_message})
 
-        # Stream intermediate steps (tool calls)
+        # Stream intermediate steps (tool calls) first
         steps = result.get("intermediate_steps", [])
         for action, observation in steps:
-            tool_name = action.tool
-            tool_input = action.tool_input
+            tool_name = getattr(action, "tool", "unknown")
+            tool_input = getattr(action, "tool_input", "")
             emoji = {"search_document": "🔍", "web_search": "🌐", "calculate": "🧮"}.get(tool_name, "🔧")
             step_data = {
                 "type": "step",
@@ -138,7 +158,7 @@ async def stream_agent_response(
             }
             yield f"event: step\ndata: {json.dumps(step_data)}\n\n"
 
-        # Stream final answer token-like (send as one block)
+        # Final answer
         final = result.get("output", "I could not determine an answer.")
         yield f"data: {final}\n\n"
 

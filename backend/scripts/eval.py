@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.pdf_processor import process_pdf
 from app.services.vector_store import store_embeddings, delete_document_embeddings
+from app.services.bm25_store import build_bm25_index, delete_bm25_index
 from app.services.rag_chain import stream_rag_response
 
 CYAN = "\033[96m"
@@ -99,6 +100,11 @@ async def run_eval(pdf_path: Path):
     print(f"{YELLOW}  [2/3] Embedding & storing in Pinecone...{RESET}")
     await store_embeddings(doc_id, chunks)
 
+    # Build BM25 index so hybrid search has keyword data
+    from app.models.schemas import SourceChunk
+    bm25_chunks = [SourceChunk(content=c.page_content, page=c.metadata.get("page"), score=0.0) for c in chunks]
+    await build_bm25_index(str(doc_id), bm25_chunks)
+
     print(f"{YELLOW}  [3/3] Running {len(TEST_CASES)} evaluation queries...\n{RESET}")
 
     passed = 0
@@ -120,6 +126,7 @@ async def run_eval(pdf_path: Path):
 
     # Cleanup
     await delete_document_embeddings(doc_id)
+    delete_bm25_index(str(doc_id))
 
     pct = round(passed / len(TEST_CASES) * 100)
     color = GREEN if pct >= 70 else YELLOW if pct >= 50 else RED
