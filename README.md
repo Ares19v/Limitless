@@ -1,7 +1,9 @@
-# DocuMind 📄🤖 v2
+<div align="center">
+  <h1>Limitless 📄⚡</h1>
+  <p><strong>Enterprise-Grade RAG Pipeline · Semantic PDF Intelligence · High-Performance Local AI</strong></p>
+</div>
 
-> **Production-ready PDF RAG application — Groq LLM + Pinecone + HuggingFace Embeddings**  
-> Upload any PDF · Ask questions · Get AI-powered, cited answers
+> **A production-ready Retrieval-Augmented Generation (RAG) system** engineered to parse, embed, and intelligently chat with any PDF document. Powered by the ultra-fast Groq LLM inference, Pinecone Vector Storage, and HuggingFace Local Embeddings for zero-cost, high-precision semantic search.
 
 ---
 
@@ -138,19 +140,20 @@ npm test
 
 ---
 
-## Tech Stack
+## 🛠️ Architecture & Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Vite 5 · React 18 · TypeScript · Tailwind CSS · Zustand |
-| Backend | FastAPI · Uvicorn · Python 3.11+ |
-| LLM | Groq Cloud (`llama-3.3-70b-versatile`) — ultra fast |
-| Embeddings | HuggingFace `all-MiniLM-L6-v2` — **free, runs locally** |
-| PDF Parsing | pypdf (pure Python, cross-platform) |
-| Vector DB | Pinecone (serverless, namespaced per document) |
-| Metadata DB | SQLite (auto-created locally via aiosqlite) |
-| Streaming | Server-Sent Events (SSE) |
-| Testing | Pytest · Vitest · RTL |
+Limitless is built with an aggressive focus on performance, modularity, and modern standards.
+
+| Layer | Technology | Rationale |
+|---|---|---|
+| **Frontend** | Vite 5, React 18, Tailwind CSS, Zustand | Optimal client-side performance, granular state management, and utility-first styling for a sleek, responsive UI. |
+| **Backend** | Python 3.11+, FastAPI, Uvicorn | High-concurrency async request handling and robust OpenAPI schema generation. |
+| **LLM Inference** | Groq Cloud (`llama-3.3-70b-versatile`) | LPU-powered inference providing unmatched Token-per-second (TPS) capabilities for real-time RAG. |
+| **Embeddings** | HuggingFace `all-MiniLM-L6-v2` | Open-source, local-first embedder. No monthly fees, no network latency, and high semantic density (384 dimensions). |
+| **Document Processing** | `pypdf`, LangChain | Reliable, thread-safe PDF text extraction paired with semantic chunk splitting. |
+| **Vector DB** | Pinecone | Serverless, highly-available vector store with namespace isolation per document. |
+| **Metadata DB** | SQLite (`aiosqlite`) | Zero-setup, async-native edge database auto-created on application launch. |
+| **Testing** | Pytest, Vitest, RTL | Comprehensive test suites ensuring pipeline reliability (All pipelines passing natively). |
 
 ---
 
