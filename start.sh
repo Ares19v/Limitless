@@ -76,7 +76,7 @@ FRONTEND_PID=$!
 sleep 3
 open "http://localhost:5173" 2>/dev/null || xdg-open "http://localhost:5173" 2>/dev/null || true
 
-echo -e "${GREEN}[OK] DocuMind is running!${NC}"
+echo -e "${GREEN}[OK] Limitless is running!${NC}"
 echo "  Press Ctrl+C to stop all services."
 
 # ── Graceful shutdown ─────────────────────────────────────────────────────────

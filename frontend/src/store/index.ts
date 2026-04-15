@@ -119,6 +119,6 @@ export const useAppStore = create<AppState>()(
           return { uploadProgress: rest }
         }),
     }),
-    { name: 'DocuMindStore' },
+    { name: 'LimitlessStore' },
   ),
 )

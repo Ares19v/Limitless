@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 # ── Patch env vars before any app import ─────────────────────────────────────
 os.environ.setdefault("GROQ_API_KEY", "test-groq-key-xxxxxxxxxxxx")
 os.environ.setdefault("PINECONE_API_KEY", "test-pinecone-key")
-os.environ.setdefault("PINECONE_INDEX_NAME", "documind-test")
+os.environ.setdefault("PINECONE_INDEX_NAME", "limitless-test")
 
 from app.main import app
 
@@ -26,7 +26,7 @@ def sample_pdf_bytes() -> bytes:
 4 0 obj<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>endobj
 5 0 obj<</Length 44>>
 stream
-BT /F1 12 Tf 100 700 Td (Hello DocuMind Test) Tj ET
+BT /F1 12 Tf 100 700 Td (Hello Limitless Test) Tj ET
 endstream
 endobj
 xref

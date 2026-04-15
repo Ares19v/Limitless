@@ -18,7 +18,7 @@ from app.services.vector_store import similarity_search
 
 logger = get_logger(__name__)
 
-SYSTEM_PROMPT = """You are DocuMind, an expert AI assistant specialized in answering questions
+SYSTEM_PROMPT = """You are Limitless, an expert AI assistant specialized in answering questions
 about documents. You have been provided with relevant excerpts from a PDF document.
 
 Guidelines:

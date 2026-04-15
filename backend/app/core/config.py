@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # SQLite document metadata store
     db_path: Path = Field(
-        default_factory=lambda: Path(__file__).resolve().parents[2] / "data" / "documind.db"
+        default_factory=lambda: Path(__file__).resolve().parents[2] / "data" / "limitless.db"
     )
 
     # CORS — stored as comma-separated string; use allowed_origins property to get list
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     )
 
     # App
-    app_name: str = "DocuMind API"
+    app_name: str = "Limitless API"
     app_version: str = "2.0.0"
     debug: bool = False
 

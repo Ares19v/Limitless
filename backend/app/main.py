@@ -46,7 +46,7 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description=(
-        "DocuMind v2 — PDF RAG API powered by Groq LLM + Pinecone vector store + "
+        "Limitless — PDF RAG API powered by Groq LLM + Pinecone vector store + "
         "HuggingFace embeddings (local, no OpenAI key required)"
     ),
     docs_url="/docs",

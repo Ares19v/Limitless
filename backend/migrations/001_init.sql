@@ -1,5 +1,5 @@
 -- ============================================================
--- DocuMind v2 — Pinecone Setup Guide
+-- Limitless — Pinecone Setup Guide
 -- (No SQL needed! This file is kept for reference only.)
 -- ============================================================
 
@@ -23,7 +23,7 @@
 
 -- ── SQLite (automatic) ─────────────────────────────────────────────────────
 -- The app auto-creates a local SQLite database at:
---   backend/data/documind.db
+--   backend/data/limitless.db
 -- Schema: documents table (id, filename, status, chunk_count, ...)
 -- No manual setup needed — it happens on first startup.
 

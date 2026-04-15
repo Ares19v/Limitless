@@ -1,5 +1,5 @@
 @echo off
-title DocuMind Launcher
+title Limitless Launcher
 color 0A
 
 echo.
@@ -73,19 +73,19 @@ echo  Frontend -> http://localhost:5173
 echo.
 
 :: Start backend in new window
-start "DocuMind Backend" cmd /k "cd /d %~dp0backend && .venv\Scripts\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "Limitless Backend" cmd /k "cd /d %~dp0backend && .venv\Scripts\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 :: Give backend 2 seconds to start
 timeout /t 2 /nobreak >nul
 
 :: Start frontend in new window
-start "DocuMind Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
+start "Limitless Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
 
 :: Open browser after 4 seconds
 timeout /t 4 /nobreak >nul
 start http://localhost:5173
 
-echo  [OK] DocuMind is running!
+echo  [OK] Limitless is running!
 echo  Close the backend and frontend windows to stop.
 echo.
 pause

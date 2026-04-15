@@ -37,7 +37,7 @@ function WelcomePane() {
           </h2>
           <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed">
             Upload any PDF document on the left and ask questions about it.
-            DocuMind uses AI to find the most relevant passages and give you
+            Limitless uses AI to find the most relevant passages and give you
             accurate, cited answers.
           </p>
         </div>
