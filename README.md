@@ -1,230 +1,306 @@
 <div align="center">
-  <h1>Limitless 📄⚡</h1>
-  <p><strong>Production-Grade RAG Pipeline · Hybrid Search · Agent Mode · Multi-Document Intelligence</strong></p>
+
+# Limitless
+
+**Production-Grade RAG Pipeline for PDFs**
+
+[![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Eval Score](https://img.shields.io/badge/RAG%20Eval-8%2F10%20(80%25)-brightgreen?style=flat-square)](EVALUATION_REPORT.md)
+
+*Upload any PDF. Ask anything. Get cited, accurate answers in real time.*
+
 </div>
 
-> **A full-stack Retrieval-Augmented Generation (RAG) system** engineered to parse, embed, and intelligently chat with any PDF document. Built with Groq LLM (ultra-fast inference), Pinecone vector storage, local HuggingFace embeddings, hybrid BM25+vector search, cross-encoder re-ranking, and a ReAct agent with real-time web search.
+---
+
+## What it does
+
+Limitless is a full-stack Retrieval-Augmented Generation (RAG) system. Drop in any PDF, and the system parses, chunks, and embeds it locally. You then chat with it through a streaming UI backed by Groq's LPU inference — the fastest available LLM API.
+
+**v2 goes further:** hybrid keyword+vector search, a cross-encoder re-ranker, an AI agent with live web search, multi-document querying, auto-summaries, persistent memory, and citation highlights — all backed by an automated evaluation pipeline.
 
 ---
 
-## Quick Start
+## Features
 
-### macOS / Linux
+| Feature | Description |
+|---|---|
+| **Hybrid Search** | BM25 keyword + Pinecone vector search fused via Reciprocal Rank Fusion |
+| **Cross-Encoder Re-ranking** | `ms-marco-MiniLM-L-6-v2` re-ranks 15 candidates to top 5 |
+| **Agent Mode** | ReAct agent with document search, live web search, and math tools |
+| **Multi-Document Search** | Query across all uploaded PDFs simultaneously |
+| **AI Summaries** | Auto 3-bullet summary generated on every upload |
+| **Persistent Memory** | SQLite-backed conversation history survives page reloads |
+| **Citation Highlights** | Expand any source chip to see the full retrieved passage |
+| **Model Fallback** | Auto-switches `llama-70b → llama-8b → gemma2` on rate limits |
+| **RAG Evaluation** | Automated 10-question benchmark pipeline (current: **80%**) |
+| **Streaming** | Token-by-token streaming via Server-Sent Events |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vite 5, React 18, TypeScript, Tailwind CSS, Zustand |
+| Backend | FastAPI, Uvicorn, Python 3.11, aiosqlite |
+| LLM | Groq Cloud `llama-3.3-70b-versatile` (LPU inference) |
+| Embeddings | HuggingFace `all-MiniLM-L6-v2` (runs locally, free) |
+| Vector DB | Pinecone serverless (384-dim, cosine) |
+| Keyword Search | `rank-bm25` local index per document |
+| Re-ranking | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| Agent | LangChain ReAct + DuckDuckGo Search |
+| Metadata DB | SQLite via `aiosqlite` |
+
+---
+
+## Prerequisites
+
+- **Python 3.11+** — [python.org/downloads](https://www.python.org/downloads/)
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
+- **Pinecone account** (free) — [pinecone.io](https://www.pinecone.io)
+- **Groq account** (free) — [console.groq.com](https://console.groq.com) *(API key pre-filled for quick start)*
+
+---
+
+## Installation
+
+### Option A — One-click launcher (recommended)
+
 ```bash
-./start.sh
+# macOS / Linux
+git clone https://github.com/your-username/limitless.git
+cd limitless
+chmod +x start.sh && ./start.sh
 ```
 
-### Windows
-```
-Double-click start.bat
+```batch
+# Windows
+git clone https://github.com/your-username/limitless.git
+cd limitless
+start.bat
 ```
 
-Both scripts:
-1. Create a Python virtual environment and install all backend deps
-2. Install frontend npm packages
-3. Copy `.env.example` → `.env` if not present
-4. Launch backend + frontend and open the browser
+The launcher automatically:
+1. Creates a Python virtual environment
+2. Installs all backend dependencies
+3. Installs frontend npm packages
+4. Copies `.env.example` → `.env`
+5. Starts both servers and opens the browser
 
 ---
 
-## First-Time Setup
+### Option B — Manual setup
 
-Edit **`backend/.env`** (Groq key is **pre-filled**):
+#### 1. Clone the repo
+
+```bash
+git clone https://github.com/your-username/limitless.git
+cd limitless
+```
+
+#### 2. Backend setup
+
+```bash
+cd backend
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment file
+cp .env.example .env
+```
+
+#### 3. Configure environment variables
+
+Edit `backend/.env`:
 
 ```env
-GROQ_API_KEY=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
+# Groq — pre-filled, works immediately
+GROQ_API_KEY=gsk_...
 
-# Add your Pinecone key:
-PINECONE_API_KEY=your_pinecone_key_here
+# Optional: add more keys to rotate across on rate limits
+GROQ_API_KEY_POOL=key1,key2,key3,key4
+
+# Pinecone — required
+PINECONE_API_KEY=your_key_here
 PINECONE_INDEX_NAME=documind
 ```
 
-### Getting Your Pinecone Key (2 minutes)
-1. Go to **[pinecone.io](https://www.pinecone.io)** → Sign Up Free
-2. Dashboard → **Indexes** → **Create Index**
-   - Name: `documind`
-   - Dimensions: `384`
-   - Metric: `cosine`
-   - Cloud: `AWS`, Region: `us-east-1`
-3. Dashboard → **API Keys** → copy your key
+**Getting your Pinecone key (2 minutes):**
+1. [pinecone.io](https://pinecone.io) → Sign Up → Dashboard → **Create Index**
+   - Name: `documind` · Dimensions: `384` · Metric: `cosine` · Cloud: `AWS us-east-1`
+2. Dashboard → **API Keys** → copy key → paste into `.env`
 
-> ✅ No OpenAI key needed. Embeddings run **locally** via `sentence-transformers`.
-> First startup downloads two models (~90MB + ~85MB, one-time only).
+> ✅ No OpenAI key needed. Embeddings run **locally** via HuggingFace (~90 MB, downloaded once on first run).
 
----
+#### 4. Start the backend
 
-## v2 Features
-
-### 🔍 Hybrid Search (BM25 + Pinecone Vector + RRF)
-Every query runs **two searches simultaneously** — BM25 keyword scoring and semantic vector search — then fuses results using Reciprocal Rank Fusion (RRF). This combines keyword precision with semantic understanding, outperforming either approach alone.
-
-### 🏆 Cross-Encoder Re-ranking
-After retrieval, a `cross-encoder/ms-marco-MiniLM-L-6-v2` model re-scores and re-ranks every candidate chunk against your exact question. Only the top 5 are sent to the LLM — dramatically improving answer quality.
-
-### 🤖 Agent Mode
-A LangChain ReAct agent with three live tools:
-- `🔍 search_document` — hybrid search in the current PDF
-- `🌐 web_search` — real-time DuckDuckGo search (no API key needed)
-- `🧮 calculate` — safe math evaluator
-
-Intermediate tool calls stream live in the UI before the final answer appears.
-
-### 🌐 Multi-Document Cross-Search
-Toggle "All Docs" mode to ask a single question across **every uploaded document simultaneously** — no need to know which document has the answer.
-
-### ✨ AI Document Summaries
-Every PDF auto-generates a 3-bullet AI summary immediately after processing. Shown in the sidebar under each document with one click.
-
-### 💾 Persistent Conversation Memory
-Chat history is stored in SQLite per document. Close the tab, come back — your conversation is still there. Memory is automatically loaded as context for every new message.
-
-### 📎 Citation Highlights
-Click any source excerpt chip to expand the **full source text** in an inline drawer. See exactly what passage the AI used to generate its answer.
-
-### 🧪 Evaluation Pipeline
-Automated scoring script that asks 10 benchmark questions about a document and reports pass/fail with keyword coverage:
 ```bash
-cd backend && PYTHONPATH=. .venv/bin/python scripts/eval.py ../bitcoin_whitepaper.pdf
+cd backend
+PYTHONPATH=. .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+#### 5. Frontend setup
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open **[http://localhost:5173](http://localhost:5173)**
 
 ---
 
-## Project Structure
+## Usage
 
-```
-Limitless/
-├── backend/
-│   ├── app/
-│   │   ├── api/routes/      # upload, chat, global_chat, agent_chat, documents, history
-│   │   ├── core/            # config, logging
-│   │   ├── services/
-│   │   │   ├── pdf_processor.py   # PDF parsing + chunking
-│   │   │   ├── embeddings.py      # HuggingFace local embeddings
-│   │   │   ├── vector_store.py    # Pinecone + hybrid search + RRF
-│   │   │   ├── bm25_store.py      # Local BM25 keyword index
-│   │   │   ├── reranker.py        # Cross-encoder re-ranker
-│   │   │   ├── rag_chain.py       # Full v2 RAG pipeline + summaries
-│   │   │   ├── agent.py           # ReAct agent with 3 tools
-│   │   │   └── document_store.py  # SQLite (documents + chat history)
-│   │   ├── models/          # Pydantic schemas
-│   │   └── utils/           # File handler
-│   ├── scripts/
-│   │   └── eval.py          # RAG evaluation pipeline
-│   ├── tests/               # Pytest test suite
-│   └── migrations/          # SQL migration guide
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ChatWindow/  # Agent mode, Global mode, Citation drawer
-│   │   │   ├── Sidebar/     # AI summary panel per document
-│   │   │   ├── FileUpload/
-│   │   │   └── Layout/
-│   │   ├── hooks/           # useChat, useUpload, useDocuments
-│   │   ├── lib/             # API client (history, agent, global chat)
-│   │   ├── store/           # Zustand state
-│   │   └── types/           # TypeScript interfaces
-│   └── banner.mjs           # Cyan ASCII banner on npm run dev
-│
-├── start.sh                 # macOS/Linux one-click launcher
-├── start.bat                # Windows one-click launcher
-└── README.md
-```
+1. **Upload** — drag a PDF onto the upload zone (max 50 MB)
+2. **Wait** — status shows `Processing → Ready` (usually under 10 seconds)
+3. **Chat** — type any question; the answer streams in real time with page citations
+4. **Expand sources** — click any source chip to read the exact retrieved passage
+5. **Agent mode** — toggle ⚡ Agent to enable live web search and math tools
+6. **All Docs** — toggle 🌐 to search across every uploaded document at once
 
 ---
 
 ## API Reference
 
+All endpoints are documented interactively at **`http://localhost:8000/docs`**
+
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Backend health check |
-| `POST` | `/api/v1/upload` | Upload a PDF (multipart) |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/upload` | Upload a PDF |
 | `GET` | `/api/v1/documents` | List all documents |
-| `GET` | `/api/v1/documents/{id}` | Get document + summary |
-| `DELETE` | `/api/v1/documents/{id}` | Delete doc + vectors + BM25 + history |
+| `GET` | `/api/v1/documents/{id}` | Get document + AI summary |
+| `DELETE` | `/api/v1/documents/{id}` | Delete doc, vectors, index, history |
 | `POST` | `/api/v1/chat/{id}` | Standard RAG chat (SSE stream) |
 | `POST` | `/api/v1/chat/global` | Cross-document search (SSE stream) |
 | `POST` | `/api/v1/agent/{id}` | Agent mode with tools (SSE stream) |
 | `GET` | `/api/v1/history/{id}` | Get conversation history |
 | `DELETE` | `/api/v1/history/{id}` | Clear conversation history |
 
-Interactive docs: `http://localhost:8000/docs`
-
 ---
 
 ## Running Tests
 
-### Backend
+### Backend unit tests
+
 ```bash
 cd backend
 PYTHONPATH=. .venv/bin/pytest tests/ -v --cov=app --cov-report=term-missing
 ```
 
-### RAG Evaluation
+### RAG Evaluation Pipeline
+
 ```bash
 cd backend
-PYTHONPATH=. .venv/bin/python scripts/eval.py ../bitcoin_whitepaper.pdf
+PYTHONPATH=. .venv/bin/python scripts/eval.py ../your_document.pdf
 ```
 
-### Frontend
-```bash
-cd frontend && npm test
+Current benchmark score: **8/10 (80%)** — see [EVALUATION_REPORT.md](EVALUATION_REPORT.md) for full analysis.
+
+---
+
+## Project Structure
+
+```
+limitless/
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/          # upload, chat, global_chat, agent_chat, documents, history
+│   │   ├── core/                # config (pydantic-settings), structured logging
+│   │   ├── models/              # Pydantic request/response schemas
+│   │   ├── services/
+│   │   │   ├── agent.py         # LangChain ReAct agent (3 tools)
+│   │   │   ├── bm25_store.py    # Local BM25 keyword index
+│   │   │   ├── document_store.py# SQLite (documents + chat history)
+│   │   │   ├── embeddings.py    # HuggingFace local embeddings
+│   │   │   ├── key_manager.py   # Groq key pool + model fallback
+│   │   │   ├── pdf_processor.py # PDF parsing + chunking
+│   │   │   ├── rag_chain.py     # Full v2 pipeline + summaries
+│   │   │   ├── reranker.py      # Cross-encoder re-ranker
+│   │   │   └── vector_store.py  # Pinecone + hybrid search + RRF
+│   │   └── utils/
+│   ├── scripts/
+│   │   └── eval.py              # Automated RAG benchmark
+│   ├── tests/                   # Pytest test suite
+│   ├── .env.example
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ChatWindow/      # Agent mode, Global mode, citation drawer
+│   │   │   ├── FileUpload/
+│   │   │   ├── Layout/
+│   │   │   └── Sidebar/         # AI summary panel
+│   │   ├── hooks/               # useChat, useUpload, useDocuments
+│   │   ├── lib/                 # API client
+│   │   ├── store/               # Zustand global state
+│   │   └── types/               # TypeScript interfaces
+│   └── package.json
+│
+├── CHANGELOG.md
+├── EVALUATION_REPORT.md
+├── LICENSE
+├── README.md
+├── start.sh                     # macOS/Linux one-click launcher
+└── start.bat                    # Windows one-click launcher
 ```
 
 ---
 
 ## Environment Variables
 
-### Backend (`backend/.env`)
+### `backend/.env`
+
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `GROQ_API_KEY` | ✅ | *pre-filled* | Groq Cloud API key |
+| `GROQ_API_KEY` | ✅ | *pre-filled* | Primary Groq API key |
+| `GROQ_API_KEY_POOL` | | — | Comma-separated keys for rotation |
 | `PINECONE_API_KEY` | ✅ | — | Pinecone API key |
 | `PINECONE_INDEX_NAME` | | `documind` | Pinecone index name |
-| `LLM_MODEL` | | `llama-3.3-70b-versatile` | Groq model |
-| `EMBEDDING_MODEL` | | `all-MiniLM-L6-v2` | Local HuggingFace embedder |
-| `CHUNK_SIZE` | | `1000` | PDF chunk size (chars) |
-| `CHUNK_OVERLAP` | | `200` | Chunk overlap |
+| `LLM_MODEL` | | `llama-3.3-70b-versatile` | Primary Groq model |
+| `EMBEDDING_MODEL` | | `all-MiniLM-L6-v2` | Local embedding model |
+| `CHUNK_SIZE` | | `1000` | Characters per PDF chunk |
+| `CHUNK_OVERLAP` | | `200` | Overlap between chunks |
 | `TOP_K_RESULTS` | | `5` | Final results after re-ranking |
-| `MAX_UPLOAD_SIZE_MB` | | `50` | Max PDF upload size |
+| `MAX_UPLOAD_SIZE_MB` | | `50` | Max PDF size |
 | `ALLOWED_ORIGINS` | | `http://localhost:5173` | CORS origins |
 
-### Frontend (`frontend/.env`)
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `VITE_API_BASE_URL` | | `http://localhost:8000` | Backend URL |
+### `frontend/.env`
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Backend URL |
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## Contributing
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Frontend** | Vite 5, React 18, Tailwind CSS, Zustand | Fast HMR, fine-grained reactivity, utility-first styling |
-| **Backend** | FastAPI, Uvicorn, Python 3.11+ | Async-first, high-concurrency, auto OpenAPI docs |
-| **LLM** | Groq Cloud `llama-3.3-70b-versatile` | LPU inference — fastest available token throughput |
-| **Embeddings** | HuggingFace `all-MiniLM-L6-v2` | Local, zero-cost, 384-dimensional semantic vectors |
-| **Vector DB** | Pinecone (serverless) | Namespace-isolated, scalable ANN search |
-| **Keyword Search** | `rank-bm25` (local) | BM25 index per document for hybrid retrieval |
-| **Hybrid Fusion** | Reciprocal Rank Fusion (RRF) | State-of-the-art multi-source result merging |
-| **Re-ranking** | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Precision re-scoring of retrieval candidates |
-| **Agent** | LangChain ReAct + DuckDuckGo | Tool-using AI with web search and math capabilities |
-| **Metadata DB** | SQLite (`aiosqlite`) | Zero-setup async DB for documents + chat history |
-| **PDF Parsing** | `pypdf` + LangChain splitters | Pure Python, cross-platform, thread-safe |
-| **Testing** | Pytest + Vitest | Full backend + frontend coverage |
+Pull requests are welcome. For major changes, please open an issue first.
+
+```bash
+# Fork → clone → create branch
+git checkout -b feat/your-feature
+
+# Make changes, then
+git commit -m "feat: your feature description"
+git push origin feat/your-feature
+# Open PR
+```
 
 ---
 
-## Feature Comparison
+## License
 
-| Feature | Basic RAG | **Limitless v2** |
-|---|---|---|
-| Search type | Vector only | Hybrid (BM25 + Vector + RRF) |
-| Result quality | Raw retrieval | Cross-encoder re-ranked |
-| Multi-document | ❌ | ✅ |
-| Web search | ❌ | ✅ (Agent Mode) |
-| Calculator | ❌ | ✅ (Agent Mode) |
-| Auto-summary | ❌ | ✅ |
-| Persistent history | ❌ | ✅ (SQLite) |
-| Citation highlights | Basic | Full excerpt drawer |
-| Evaluation | ❌ | ✅ (10-question pipeline) |
+[MIT](LICENSE) © 2026 Limitless Contributors
