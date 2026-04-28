@@ -59,7 +59,7 @@ echo    Frontend ^>  http://localhost:5173
 echo.
 
 :: ── Start backend ──────────────────────────────────────────────────────────
-start "Limitless Backend" cmd /k "cd /d %~dp0backend && set PYTHONPATH=. && .venv\Scripts\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "Limitless Backend" cmd /k "cd /d %~dp0backend && set PYTHONPATH=. && .venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 :: ── Wait for backend to be ready (poll /health up to 60s) ─────────────────
 echo  [WAIT] Waiting for backend to start...

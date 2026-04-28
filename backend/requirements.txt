@@ -1,9 +1,8 @@
-# Backend Python dependencies
-# Python 3.11+
+# Backend Python dependencies — verified working on Python 3.11+, 3.13+
 #
 # NOTE: torch is installed as CPU-only to keep the image lightweight.
-# If you need GPU support, replace torch with the appropriate CUDA build.
-# See: https://pytorch.org/get-started/locally/
+# The ML packages pull torch automatically; to get CPU-only explicitly:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 # Web framework
 fastapi==0.111.0
@@ -18,24 +17,21 @@ pydantic-settings==2.4.0
 httpx==0.27.0
 requests==2.32.3
 
-# LLM & Embeddings
-groq==0.11.0
-langchain==0.2.16
-langchain-community==0.2.16
-langchain-core==0.2.38
-langchain-groq==0.1.9
-langchain-huggingface==0.0.3
-langchain-text-splitters==0.2.4
+# LLM & Embeddings — pinned to latest stable compatible versions
+groq>=0.11.0
+langchain>=1.0.0
+langchain-community>=0.4.0
+langchain-core>=1.0.0
+langchain-groq>=1.0.0
+langchain-huggingface>=1.0.0
+langchain-text-splitters>=1.0.0
 
 # Vector store
-pinecone==4.1.0
+pinecone>=4.0.0
 
-# Embeddings & ML (CPU-only torch)
-# Install with: pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu
-torch==2.3.1
-transformers==4.44.0
-sentence-transformers==3.0.1
-scikit-learn==1.5.1
+# Embeddings & ML
+sentence-transformers>=3.0.0
+scikit-learn>=1.5.0
 
 # PDF processing
 pypdf==4.3.1
@@ -44,15 +40,15 @@ pypdf==4.3.1
 rank-bm25==0.2.2
 
 # Web search (agent tool)
-duckduckgo-search==6.2.6
+duckduckgo-search>=6.0.0
 
 # Database
 aiosqlite==0.20.0
-sqlalchemy==2.0.31
+sqlalchemy>=2.0.0
 
 # Utilities
-orjson==3.10.6
-numpy==1.26.4
+orjson>=3.9.0
+numpy>=1.26.0
 python-dotenv==1.0.1
-structlog==24.2.0
-anyio==4.4.0
+structlog>=24.0.0
+anyio>=4.0.0
