@@ -41,6 +41,21 @@ def _build_context_prompt(sources: List[SourceChunk]) -> str:
     return "\n".join(parts)
 
 
+def _deduplicate_chunks(chunks: List[SourceChunk], max_chunks: int = 5) -> List[SourceChunk]:
+    """Remove near-duplicate chunks using first-80-char fingerprint to prevent Groq loop detection."""
+    seen: set[str] = set()
+    unique: List[SourceChunk] = []
+    for chunk in chunks:
+        # Use first 80 chars as a fingerprint — catches overlapping chunks
+        fingerprint = chunk.content[:80].strip().lower()
+        if fingerprint not in seen:
+            seen.add(fingerprint)
+            unique.append(chunk)
+        if len(unique) >= max_chunks:
+            break
+    return unique
+
+
 def _build_messages(context: str, user_message: str, history: List[ChatMessage]) -> List[dict]:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in history[-10:]:
@@ -102,8 +117,9 @@ async def stream_rag_response(
         yield "event: done\ndata: [DONE]\n\n"
         return
 
-    # Step 2: Re-rank candidates to top 5
+    # Step 2: Re-rank candidates to top 5, then deduplicate
     sources = rerank(user_message, candidates, top_k=5)
+    sources = _deduplicate_chunks(sources, max_chunks=5)
 
     # Step 3: Build prompt and stream
     context = _build_context_prompt(sources)
@@ -146,6 +162,18 @@ async def stream_rag_response(
                 logger.warning("rag_rate_limited", attempt=attempt, model=current_model)
                 full_answer = ""  # reset for retry
                 continue  # try next model
+            elif "looping" in err.lower() or "loop detection" in err.lower():
+                # Groq flagged the context as repetitive — retry with fewer, shorter chunks
+                logger.warning("rag_loop_detected", attempt=attempt)
+                if attempt == 0 and len(sources) > 3:
+                    sources = sources[:3]  # reduce to 3 chunks and retry
+                    context = _build_context_prompt(sources)
+                    messages = _build_messages(context, user_message, history)
+                    full_answer = ""
+                    continue
+                else:
+                    yield "data: ⚠️ The document has highly repetitive content that prevented a clean response. Try asking a more specific question.\n\n"
+                    break
             else:
                 logger.error("rag_stream_error", error=err)
                 yield f"data: ❌ An error occurred: {err}\n\n"
