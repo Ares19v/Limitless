@@ -90,5 +90,6 @@ logs/
 .mypy_cache/
 .ruff_cache/
 
-# ── PDFs (don't track large test files) ──────────────────────────────────────
+# ── PDFs (don't track large test files, but DO track demo_docs/) ─────────────
 *.pdf
+!demo_docs/*.pdf
