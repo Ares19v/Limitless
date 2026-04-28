@@ -72,18 +72,21 @@ if not exist "backend\.venv" (
     )
     echo  [OK] Virtual environment created
 ) else (
-    echo  [OK] Virtual environment already exists — skipping creation
+    echo  [OK] Virtual environment already exists
 )
 
-:: ── Install backend Python packages ────────────────────────────────────────
+:: ── Install backend Python packages (always run to ensure all deps present) ──
 echo.
 echo  [SETUP] Installing backend dependencies (this may take a few minutes)...
 call backend\.venv\Scripts\activate.bat
 
+echo  [SETUP] Upgrading pip...
+python -m pip install --upgrade pip -q
+
 echo  [SETUP] Installing CPU-only torch first...
 pip install -q torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu
 
-echo  [SETUP] Installing remaining dependencies...
+echo  [SETUP] Installing remaining backend dependencies...
 pip install -q -r backend\requirements.txt
 
 echo  [OK] Backend dependencies installed
