@@ -175,8 +175,6 @@ async def stream_global_rag_response(
     Cross-document RAG: searches all documents, no namespace filter.
     Identified by document_id prefix in chunk content.
     """
-    settings = get_settings()
-
     sources = await global_similarity_search(user_message, top_k=10)
 
     if not sources:

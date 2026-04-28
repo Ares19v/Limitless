@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # Groq LLM
@@ -60,14 +61,6 @@ class Settings(BaseSettings):
     app_name: str = "Limitless API"
     app_version: str = "2.0.0"
     debug: bool = False
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",
-        populate_by_name=True,
-    )
 
     @field_validator("upload_dir", mode="before")
     @classmethod

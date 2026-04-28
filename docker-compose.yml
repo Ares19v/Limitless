@@ -1,0 +1,70 @@
+version: "3.9"
+
+# ── Limitless — Docker Compose ────────────────────────────────────────────────
+# Usage:
+#   docker compose up --build          # First run (builds images)
+#   docker compose up -d               # Background mode
+#   docker compose down                # Stop and remove containers
+#   docker compose down -v             # Also remove volumes
+#
+# Required: copy backend/.env.example → backend/.env and fill in your API keys.
+
+services:
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: limitless-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+      ALLOWED_ORIGINS: "http://localhost,http://localhost:80,http://frontend"
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_data:/app/data
+      - backend_bm25:/app/bm25_indexes
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - limitless-net
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://backend:8000
+    container_name: limitless-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - limitless-net
+
+# ── Named Volumes ──────────────────────────────────────────────────────────────
+volumes:
+  backend_uploads:
+    driver: local
+  backend_data:
+    driver: local
+  backend_bm25:
+    driver: local
+
+# ── Network ────────────────────────────────────────────────────────────────────
+networks:
+  limitless-net:
+    driver: bridge

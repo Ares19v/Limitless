@@ -1,0 +1,23 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Build output (rebuilt in container)
+dist/
+build/
+.vite/
+
+# Tests
+tests/
+coverage/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -9,6 +9,7 @@
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![Eval Score](https://img.shields.io/badge/RAG%20Eval-8%2F10%20(80%25)-brightgreen?style=flat-square)](EVALUATION_REPORT.md)
+[![CI](https://github.com/Ares19v/limitless/actions/workflows/ci.yml/badge.svg)](https://github.com/Ares19v/limitless/actions/workflows/ci.yml)
 
 *Upload any PDF. Ask anything. Get cited, accurate answers in real time.*
 
@@ -72,24 +73,43 @@ Limitless is a full-stack Retrieval-Augmented Generation (RAG) system. Drop in a
 
 ```bash
 # macOS / Linux
-git clone https://github.com/your-username/limitless.git
+git clone https://github.com/Ares19v/limitless.git
 cd limitless
 chmod +x start.sh && ./start.sh
 ```
 
 ```batch
 # Windows
-git clone https://github.com/your-username/limitless.git
+git clone https://github.com/Ares19v/limitless.git
 cd limitless
-start.bat
+INSTALL.bat        :: First-time setup (run once)
+Run_Project.bat    :: Start the app
 ```
 
 The launcher automatically:
 1. Creates a Python virtual environment
-2. Installs all backend dependencies
+2. Installs all backend dependencies (CPU-only torch)
 3. Installs frontend npm packages
-4. Copies `.env.example` → `.env`
+4. Copies `.env.example` → `.env` and prompts for API keys
 5. Starts both servers and opens the browser
+
+> **Windows scripts:**
+> - `INSTALL.bat` — First-time setup (run once)
+> - `Run_Project.bat` — Start both servers and open the browser
+> - `UNINSTALL.bat` — Remove local installation artifacts
+
+---
+
+### Option B — Docker (no Python/Node required)
+
+```bash
+git clone https://github.com/Ares19v/limitless.git
+cd limitless
+cp backend/.env.example backend/.env   # Fill in your API keys
+docker compose up --build
+```
+
+Open **[http://localhost](http://localhost)** — the frontend proxies API calls to the backend automatically.
 
 ---
 
@@ -98,7 +118,7 @@ The launcher automatically:
 #### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-username/limitless.git
+git clone https://github.com/Ares19v/limitless.git
 cd limitless
 ```
 
@@ -214,6 +234,8 @@ Current benchmark score: **8/10 (80%)** — see [EVALUATION_REPORT.md](EVALUATIO
 
 ```
 limitless/
+├── .github/workflows/
+│   └── ci.yml               # GitHub Actions CI (backend + frontend)
 ├── backend/
 │   ├── app/
 │   │   ├── api/routes/          # upload, chat, global_chat, agent_chat, documents, history
@@ -233,6 +255,7 @@ limitless/
 │   ├── scripts/
 │   │   └── eval.py              # Automated RAG benchmark
 │   ├── tests/                   # Pytest test suite
+│   ├── Dockerfile
 │   ├── .env.example
 │   └── requirements.txt
 │
@@ -247,14 +270,18 @@ limitless/
 │   │   ├── lib/                 # API client
 │   │   ├── store/               # Zustand global state
 │   │   └── types/               # TypeScript interfaces
+│   ├── Dockerfile
 │   └── package.json
 │
+├── docker-compose.yml           # Full stack with Docker
+├── INSTALL.bat                  # Windows first-time setup
+├── Run_Project.bat              # Windows launcher
+├── UNINSTALL.bat                # Windows cleanup
+├── start.sh                     # macOS/Linux one-click launcher
 ├── CHANGELOG.md
 ├── EVALUATION_REPORT.md
 ├── LICENSE
-├── README.md
-├── start.sh                     # macOS/Linux one-click launcher
-└── start.bat                    # Windows one-click launcher
+└── README.md
 ```
 
 ---

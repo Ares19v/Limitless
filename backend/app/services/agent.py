@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import json
-import re
 from typing import AsyncGenerator
 from uuid import UUID
 
@@ -98,14 +97,63 @@ def _make_tools(document_id: UUID):
 
     @tool
     def calculate(expression: str) -> str:
-        """Evaluate a safe mathematical expression. E.g. '2 + 2', '100 * 0.05'."""
+        """Evaluate a safe mathematical expression. E.g. '2 + 2', '100 * 0.05', 'sqrt(16)'."""
+        import ast
         import math
+        import operator
+
+        _SAFE_OPS = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.Pow: operator.pow,
+            ast.USub: operator.neg,
+            ast.UAdd: operator.pos,
+            ast.Mod: operator.mod,
+            ast.FloorDiv: operator.floordiv,
+        }
+        _SAFE_FUNCS = {
+            name: getattr(math, name)
+            for name in ("sqrt", "log", "log2", "log10", "exp", "sin", "cos", "tan",
+                         "asin", "acos", "atan", "atan2", "ceil", "floor", "fabs",
+                         "factorial", "gcd", "degrees", "radians", "pi", "e")
+            if hasattr(math, name)
+        }
+
+        def _eval(node):
+            if isinstance(node, ast.Constant):
+                if not isinstance(node.value, (int, float)):
+                    raise ValueError(f"Unsupported constant type: {type(node.value)}")
+                return node.value
+            elif isinstance(node, ast.BinOp):
+                op_type = type(node.op)
+                if op_type not in _SAFE_OPS:
+                    raise ValueError(f"Unsupported operator: {op_type.__name__}")
+                left = _eval(node.left)
+                right = _eval(node.right)
+                return _SAFE_OPS[op_type](left, right)
+            elif isinstance(node, ast.UnaryOp):
+                op_type = type(node.op)
+                if op_type not in _SAFE_OPS:
+                    raise ValueError(f"Unsupported unary operator: {op_type.__name__}")
+                return _SAFE_OPS[op_type](_eval(node.operand))
+            elif isinstance(node, ast.Call):
+                if not isinstance(node.func, ast.Name) or node.func.id not in _SAFE_FUNCS:
+                    raise ValueError(f"Unsupported function call: {getattr(node.func, 'id', '?')}")
+                args = [_eval(a) for a in node.args]
+                return _SAFE_FUNCS[node.func.id](*args)
+            elif isinstance(node, ast.Name):
+                if node.id in _SAFE_FUNCS:
+                    return _SAFE_FUNCS[node.id]
+                raise ValueError(f"Unknown name: {node.id}")
+            else:
+                raise ValueError(f"Unsupported expression node: {type(node).__name__}")
+
         try:
-            # Strip dangerous characters — allow only math symbols
-            safe_expr = re.sub(r"[^0-9+\-*/().,\s%]", "", expression)
-            allowed = {k: v for k, v in math.__dict__.items() if not k.startswith("_")}
-            result = eval(safe_expr, {"__builtins__": {}}, allowed)
-            return str(result)
+            tree = ast.parse(expression.strip(), mode="eval")
+            result = _eval(tree.body)
+            return str(round(result, 10) if isinstance(result, float) else result)
         except Exception as e:
             return f"Calculation error: {e}"
 
