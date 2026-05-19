@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+
 [![Eval Score](https://img.shields.io/badge/RAG%20Eval-8%2F10%20(80%25)-brightgreen?style=flat-square)](EVALUATION_REPORT.md)
 [![CI](https://github.com/Ares19v/limitless/actions/workflows/ci.yml/badge.svg)](https://github.com/Ares19v/limitless/actions/workflows/ci.yml)
 
@@ -328,6 +328,7 @@ git push origin feat/your-feature
 
 ---
 
-## License
-
-[MIT](LICENSE) © 2026 Limitless Contributors
+---
+<p align="center">
+  Made by Devansh Tyagi @ 2026
+</p>
