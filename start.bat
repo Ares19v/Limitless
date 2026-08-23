@@ -73,16 +73,21 @@ echo  Frontend -> http://localhost:5173
 echo.
 
 :: Start backend in new window
-start "Limitless Backend" cmd /k "cd /d %~dp0backend && .venv\Scripts\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+cd /d "%~dp0backend"
+start "Limitless Backend" cmd /k ".venv\Scripts\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+cd /d "%~dp0"
 
 :: Give backend 2 seconds to start
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 
 :: Start frontend in new window
-start "Limitless Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
+cd /d "%~dp0frontend"
+start "Limitless Frontend" cmd /k "npm run dev"
+cd /d "%~dp0"
 
 :: Open browser after 4 seconds
-timeout /t 4 /nobreak >nul
+:: Open browser after 4 seconds
+ping -n 5 127.0.0.1 >nul
 start http://localhost:5173
 
 echo  [OK] Limitless is running!
