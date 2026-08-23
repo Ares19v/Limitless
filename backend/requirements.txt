@@ -3,20 +3,16 @@
 # Strategy: pin only the web framework (fastapi/uvicorn) for stability.
 # Everything else uses >= so pip can resolve the full langchain 1.x dependency tree
 # without conflict. Tested locally with Python 3.13 and on CI with Python 3.11.
-
 # Web framework (pinned — breaking changes between minor versions)
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 python-multipart==0.0.9
-
 # Data validation (flexible — langchain-community requires pydantic-settings>=2.10.1)
 pydantic>=2.8.0
 pydantic-settings>=2.10.1
-
 # HTTP clients
 httpx>=0.27.0
 requests>=2.32.5
-
 # LLM & Embeddings
 groq>=0.11.0
 langchain>=1.0.0
@@ -25,27 +21,20 @@ langchain-core>=1.0.0
 langchain-groq>=1.0.0
 langchain-huggingface>=1.0.0
 langchain-text-splitters>=1.0.0
-
 # Vector store
 pinecone>=4.0.0
-
 # Embeddings & ML
 sentence-transformers>=3.0.0
 scikit-learn>=1.5.0
-
 # PDF processing
 pypdf==4.3.1
-
 # Keyword search
 rank-bm25==0.2.2
-
 # Web search (agent tool)
 duckduckgo-search>=6.0.0
-
 # Database
 aiosqlite==0.20.0
 sqlalchemy>=2.0.0
-
 # Utilities
 orjson>=3.9.0
 numpy>=1.26.0
