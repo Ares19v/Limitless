@@ -23,8 +23,8 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 FALLBACK_MODELS = [
-    "llama-3.1-8b-instant",
-    "gemma2-9b-it",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
 ]
 
 

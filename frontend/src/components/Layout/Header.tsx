@@ -1,41 +1,31 @@
-/**
- * App header with branding, theme toggle, and status indicator.
- */
-
-import { Sun, Moon, Activity, Github } from 'lucide-react'
-import { cn } from '@/lib/utils'
+﻿import { useState, useEffect } from 'react'
+import { Sun, Moon, Database, FileText, Sparkles } from 'lucide-react'
 import { useAppStore } from '@/store'
-import { useState, useEffect } from 'react'
 import { checkHealth } from '@/lib/api'
 
-function ThemeToggle() {
-  const { isDark, toggleDark } = useAppStore()
-  return (
-    <button
-      id="theme-toggle"
-      onClick={toggleDark}
-      className={cn(
-        'w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300',
-        'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400',
-        'hover:text-slate-700 dark:hover:text-slate-200',
-      )}
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-    >
-      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-    </button>
-  )
+interface HeaderProps {
+  onOpenSpecs: () => void
+  onOpenDrawer: () => void
+  onOpenGlobalChat: () => void
+  isGlobalChatActive: boolean
 }
 
-function ApiStatus() {
-  const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking')
+export function Header({
+  onOpenSpecs,
+  onOpenDrawer,
+  onOpenGlobalChat,
+  isGlobalChatActive,
+}: HeaderProps) {
+  const { themeMode, setThemeMode, documents, selectedDocument, selectDocument } = useAppStore()
+  const [apiOk, setApiOk] = useState<boolean | null>(null)
 
   useEffect(() => {
     const check = async () => {
       try {
         await checkHealth()
-        setStatus('ok')
+        setApiOk(true)
       } catch {
-        setStatus('error')
+        setApiOk(false)
       }
     }
     check()
@@ -43,50 +33,116 @@ function ApiStatus() {
     return () => clearInterval(interval)
   }, [])
 
-  return (
-    <div className="flex items-center gap-1.5">
-      <div
-        className={cn(
-          'w-2 h-2 rounded-full',
-          status === 'ok' && 'bg-emerald-400',
-          status === 'error' && 'bg-red-400',
-          status === 'checking' && 'bg-amber-400 animate-pulse',
-        )}
-      />
-      <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-        {status === 'ok' ? 'API Connected' : status === 'error' ? 'API Offline' : 'Connecting…'}
-      </span>
-    </div>
-  )
-}
+  const toggleTheme = () => {
+    setThemeMode(themeMode === 'seamless' ? 'obsidian' : 'seamless')
+  }
 
-export function Header() {
   return (
-    <header className="h-14 flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md sticky top-0 z-50">
-      {/* Logo */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center shadow-md shadow-brand-500/20">
-          <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 text-white">
-            <path d="M4 4h8l4 4v10H4V4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            <path d="M12 4v4h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M6 11h8M6 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </div>
-        <div>
-          <h1 className="text-base font-bold text-slate-900 dark:text-white leading-none">
-            Limitless
-          </h1>
-          <p className="text-[10px] text-slate-400 leading-none mt-0.5">
-            AI Document Chat
-          </p>
+    <header className="h-16 flex items-center justify-between px-6 sm:px-10 md:px-14 border-b border-white/10 select-none bg-[#111116]/80 backdrop-blur-xl text-white z-30">
+      {/* Brand logo */}
+      <div className="flex items-center gap-6">
+        <button
+          onClick={() => selectDocument(null)}
+          className="flex items-center gap-2.5 group text-left"
+        >
+          {/* Geometric asterisk icon */}
+          <span className="font-mono text-xl font-black group-hover:rotate-45 transition-transform duration-300 text-white">
+            ✻
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-display font-black tracking-widest text-base sm:text-lg uppercase text-white">
+              LIMITLESS
+            </span>
+            <span className="text-[10px] font-mono tracking-widest hidden sm:inline uppercase text-white/50">
+              // RAG 2.0
+            </span>
+          </div>
+        </button>
+
+        {/* Live system state dot */}
+        <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full border border-white/10 text-[11px] font-mono bg-white/[0.06] text-white/70">
+          <div
+            className={`w-1.5 h-1.5 rounded-full ${
+              apiOk === true
+                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]'
+                : apiOk === false
+                ? 'bg-red-400'
+                : 'bg-amber-400 animate-pulse'
+            }`}
+          />
+          <span>{apiOk ? 'SYSTEM OPTIMAL' : 'CONNECTING API'}</span>
         </div>
       </div>
 
-      {/* Right side */}
+      {/* Navigation Links */}
+      <div className="hidden md:flex items-center gap-8 text-xs font-sans font-medium text-white/70">
+        <button
+          onClick={() => selectDocument(null)}
+          className={`transition-colors underline-offset-4 ${
+            !selectedDocument && !isGlobalChatActive
+              ? 'underline font-bold text-white'
+              : 'hover:text-white'
+          }`}
+        >
+          Overview
+        </button>
+
+        <button
+          onClick={onOpenSpecs}
+          className="transition-colors underline-offset-4 hover:underline hover:text-white"
+        >
+          Specifications
+        </button>
+
+        <button
+          onClick={onOpenDrawer}
+          className="transition-colors flex items-center gap-1.5 underline-offset-4 hover:underline hover:text-white"
+        >
+          <span>Corpus ({documents.length})</span>
+        </button>
+
+        <button
+          onClick={onOpenGlobalChat}
+          className={`transition-colors flex items-center gap-1.5 underline-offset-4 hover:underline ${
+            isGlobalChatActive ? 'underline font-bold text-white' : 'hover:text-white'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5" />
+          <span>Multi-Doc Search</span>
+        </button>
+      </div>
+
+      {/* Right controls: Theme Toggle, Upload Trigger & Menu */}
       <div className="flex items-center gap-3">
-        <ApiStatus />
-        <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-        <ThemeToggle />
+        {/* Active Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-medium transition-all bg-white/10 hover:bg-white/20 text-white border border-white/10 shadow-sm"
+          title="Click to toggle between Seamless Halo and Deep Obsidian"
+        >
+          <Sparkles className="w-3 h-3 text-amber-400" />
+          <span className="capitalize">
+            {themeMode === 'seamless' ? 'Seamless Halo' : 'Deep Obsidian'}
+          </span>
+        </button>
+
+        <button
+          onClick={onOpenDrawer}
+          className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-opacity shadow-md bg-white text-black hover:bg-white/90"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Upload PDF</span>
+        </button>
+
+        {/* Minimalist Inspiration double-line hamburger icon '=' */}
+        <button
+          onClick={onOpenDrawer}
+          className="w-9 h-9 rounded-full flex flex-col items-center justify-center gap-1 transition-colors text-white hover:bg-white/10"
+          title="Open drawer menu"
+        >
+          <div className="w-4 h-[1.5px] bg-current rounded-full" />
+          <div className="w-4 h-[1.5px] bg-current rounded-full" />
+        </button>
       </div>
     </header>
   )

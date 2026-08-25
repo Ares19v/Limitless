@@ -8,22 +8,33 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Syne', 'Space Grotesk', 'Plus Jakarta Sans', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       colors: {
+        canvas: {
+          DEFAULT: '#ECECEC',
+          dark: '#111111',
+          light: '#F4F4F4',
+        },
+        bezel: {
+          DEFAULT: '#161616',
+          border: '#242424',
+          subtle: '#333333',
+        },
         brand: {
           50:  '#f0f4ff',
           100: '#dde6ff',
           200: '#c1d0ff',
           300: '#97b2ff',
           400: '#6488ff',
-          500: '#3d5eff',
-          600: '#2840f5',
-          700: '#1f31e1',
-          800: '#1d2ab6',
-          900: '#1d2a8f',
-          950: '#131a5c',
+          500: '#111111',
+          600: '#1a1a1a',
+          700: '#000000',
+          800: '#111111',
+          900: '#0a0a0a',
+          950: '#050505',
         },
         surface: {
           DEFAULT: 'hsl(var(--surface))',

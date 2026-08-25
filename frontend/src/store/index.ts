@@ -7,9 +7,13 @@ import { devtools } from 'zustand/middleware'
 import type { AgentStep, ChatMessage, Document, SourceChunk } from '@/types'
 
 interface AppState {
-  // ── Theme ──────────────────────────────────────────────────────────────
+  // ── Theme & Layout ──────────────────────────────────────────────────────
   isDark: boolean
+  themeMode: 'seamless' | 'obsidian'
+  isFullScreen: boolean
   toggleDark: () => void
+  setThemeMode: (mode: 'seamless' | 'obsidian') => void
+  toggleFullScreen: () => void
 
   // ── Documents ──────────────────────────────────────────────────────────
   documents: Document[]
@@ -45,12 +49,19 @@ const prefersDark =
 export const useAppStore = create<AppState>()(
   devtools(
     (set, get) => ({
-      // ── Theme ────────────────────────────────────────────────────────
-      isDark: prefersDark,
+      // ── Theme & Layout ───────────────────────────────────────────────
+      isDark: false,
+      themeMode: 'seamless',
+      isFullScreen: true,
       toggleDark: () => {
         const next = !get().isDark
         set({ isDark: next })
         document.documentElement.classList.toggle('dark', next)
+      },
+      setThemeMode: (mode) => set({ themeMode: mode }),
+      toggleFullScreen: () => {
+        const next = !get().isFullScreen
+        set({ isFullScreen: next })
       },
 
       // ── Documents ─────────────────────────────────────────────────────
