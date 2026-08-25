@@ -82,6 +82,8 @@ async def store_embeddings(document_id: UUID, chunks: List[Document]) -> int:
                 "total_pages": chunk.metadata.get("total_pages"),
                 "document_id": str(document_id),
                 "chunk_index": i,
+                "bbox": chunk.metadata.get("bbox", ""),                       # Feature 6: bounding box
+                "context_prefix": chunk.metadata.get("context_prefix", ""),   # Feature 1: contextual retrieval
             },
         })
 
@@ -128,6 +130,8 @@ async def similarity_search(
             content=meta.get("content", ""),
             page=meta.get("page"),
             score=round(float(match.get("score", 0.0)), 4),
+            bbox=meta.get("bbox") or None,
+            context_prefix=meta.get("context_prefix") or None,
         ))
 
     logger.info("similarity_search_done", document_id=str(document_id), results=len(sources))

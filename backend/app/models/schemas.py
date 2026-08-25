@@ -62,6 +62,8 @@ class SourceChunk(BaseModel):
     content: str
     page: Optional[int] = None
     score: float
+    bbox: Optional[str] = None          # "x0,y0,x1,y1" — bounding box on page (for PDF highlight overlay)
+    context_prefix: Optional[str] = None  # Contextual retrieval prefix (Anthropic-style)
 
 
 class ChatResponse(BaseModel):

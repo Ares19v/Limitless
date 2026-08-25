@@ -16,7 +16,7 @@ from app.core.logging import get_logger
 from app.models.schemas import SourceChunk, UploadResponse
 from app.services.bm25_store import build_bm25_index
 from app.services.document_store import create_document, update_document_status
-from app.services.pdf_processor import process_pdf
+from app.services.pdf_processor import process_pdf, enrich_chunks_with_context
 from app.services.rag_chain import generate_summary
 from app.services.vector_store import store_embeddings
 from app.utils.file_handler import get_upload_path, validate_file
@@ -40,6 +40,18 @@ async def _process_and_embed(document_id: UUID, file_path: Path) -> None:
         loop = asyncio.get_event_loop()
         langchain_chunks = await loop.run_in_executor(None, process_pdf, file_path)
 
+        # Step 1b: Contextual Retrieval enrichment (Anthropic-style)
+        # Prepends LLM-generated document-level context to each chunk before embedding.
+        # Improves retrieval accuracy by up to 67%. Gracefully degrades if LLM is slow.
+        try:
+            langchain_chunks = await enrich_chunks_with_context(
+                langchain_chunks, document_name=file_path.name
+            )
+            logger.info("contextual_enrichment_done", chunks=len(langchain_chunks))
+        except Exception as exc:
+            logger.warning("contextual_enrichment_skipped", error=str(exc))
+            # Continue with unenriched chunks — feature degrades gracefully
+
         # Step 2: Pinecone vector storage
         count = await store_embeddings(document_id, langchain_chunks)
 
@@ -57,7 +69,7 @@ async def _process_and_embed(document_id: UUID, file_path: Path) -> None:
         # Step 4: Generate 3-bullet AI summary from first few chunks
         summary = await generate_summary(bm25_chunks)
 
-        # Step 5: Update SQLite → ready with summary
+        # Step 5: Update SQLite → ready with summary (mark ready NOW before RAPTOR)
         await update_document_status(
             document_id, "ready", chunk_count=count, summary=summary
         )
@@ -67,6 +79,16 @@ async def _process_and_embed(document_id: UUID, file_path: Path) -> None:
             chunks=count,
             has_summary=bool(summary),
         )
+
+        # Step 6: Build RAPTOR tree (async, non-blocking — runs after document is marked ready)
+        # This enables hierarchical retrieval across all tree levels.
+        try:
+            from app.services.raptor import build_raptor_tree
+            raptor_result = await build_raptor_tree(document_id, langchain_chunks)
+            logger.info("raptor_complete", document_id=str(document_id), **raptor_result)
+        except Exception as exc:
+            logger.warning("raptor_build_failed", document_id=str(document_id), error=str(exc))
+            # RAPTOR failure does NOT affect document status — document is already marked ready
 
     except Exception as exc:
         logger.error("processing_failed", document_id=str(document_id), error=str(exc))

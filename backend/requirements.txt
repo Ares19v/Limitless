@@ -35,9 +35,14 @@ duckduckgo-search>=6.0.0
 # Database
 aiosqlite==0.20.0
 sqlalchemy>=2.0.0
+# Audio Overview (NotebookLM podcast synthesis)
+gTTS>=2.5.0
+pydub>=0.25.1
 # Utilities
 orjson>=3.9.0
 numpy>=1.26.0
 python-dotenv==1.0.1
 structlog>=24.0.0
 anyio>=4.0.0
+
+

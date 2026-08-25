@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import chat, documents, upload
-from app.api.routes import global_chat, agent_chat, history
+from app.api.routes import global_chat, agent_chat, history, consensus, audio
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
 from app.models.schemas import ErrorResponse, HealthResponse
@@ -71,6 +71,8 @@ app.include_router(chat.router, prefix="/api/v1")
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(agent_chat.router, prefix="/api/v1")
 app.include_router(history.router, prefix="/api/v1")
+app.include_router(consensus.router, prefix="/api/v1")    # Feature 3: Contradiction/Consensus Engine
+app.include_router(audio.router, prefix="/api/v1")        # Feature 5: Audio Overview Generator
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
