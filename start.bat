@@ -52,10 +52,10 @@ if not exist "backend\.venv" (
     echo  [SETUP] Creating Python virtual environment...
     python -m venv backend\.venv
     echo  [SETUP] Installing backend dependencies...
-    call backend\.venv\Scripts\activate.bat
+    if exist backend\.venv\Scripts\activate.bat call backend\.venv\Scripts\activate.bat
     pip install -q -r backend\requirements.txt
 ) else (
-    call backend\.venv\Scripts\activate.bat
+    if exist backend\.venv\Scripts\activate.bat call backend\.venv\Scripts\activate.bat
 )
 
 :: Install frontend dependencies
