@@ -54,5 +54,6 @@
     "@testing-library/jest-dom": "^6.4.8",
     "@vitest/coverage-v8": "^1.6.0",
     "jsdom": "^24.1.1"
-  }
+  },
+  "description": "High-accuracy PDF RAG pipeline with hybrid vector search, source citation highlights, and dual-pane document viewing."
 }

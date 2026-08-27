@@ -2,7 +2,7 @@
 
 # Limitless
 
-**Production-Grade RAG Pipeline for PDFs**
+**high-performance RAG Pipeline for PDFs**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
